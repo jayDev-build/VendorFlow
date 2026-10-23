@@ -1,0 +1,132 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background-color: #f8fafc;
+  color: #0f172a;
+  font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* =========================================================================
+   HIGH-CONTRAST TYPOGRAPHY & SURFACE DEFAULTS
+   ========================================================================= */
+
+/* Default text color for light theme surfaces */
+.bg-white,
+.bg-slate-50,
+.bg-slate-100 {
+  color: #0f172a;
+}
+
+/* Ensure headings on light surfaces are deep slate-900 */
+.bg-white h1, .bg-white h2, .bg-white h3, .bg-white h4,
+.bg-slate-50 h1, .bg-slate-50 h2, .bg-slate-50 h3, .bg-slate-50 h4 {
+  color: #0f172a;
+}
+
+/* Inputs on light cards */
+.bg-white input:not([type="checkbox"]):not([type="radio"]):not([class*="bg-slate-800"]):not([class*="bg-slate-900"]),
+.bg-white select:not([class*="bg-slate-800"]):not([class*="bg-slate-900"]),
+.bg-white textarea:not([class*="bg-slate-800"]):not([class*="bg-slate-900"]),
+.bg-slate-50 input:not([type="checkbox"]):not([type="radio"]):not([class*="bg-slate-800"]):not([class*="bg-slate-900"]),
+.bg-slate-50 select:not([class*="bg-slate-800"]):not([class*="bg-slate-900"]),
+.bg-slate-50 textarea:not([class*="bg-slate-800"]):not([class*="bg-slate-900"]) {
+  color: #0f172a;
+  background-color: #ffffff;
+}
+
+.bg-white input::placeholder,
+.bg-white textarea::placeholder,
+.bg-slate-50 input::placeholder,
+.bg-slate-50 textarea::placeholder {
+  color: #64748b;
+  opacity: 1;
+}
+
+/* =========================================================================
+   DARK THEME SURFACES (Public Portal, Auth Screens, Sidebar)
+   ========================================================================= */
+
+.bg-slate-900,
+.bg-slate-950 {
+  color: #f8fafc;
+}
+
+.bg-slate-900 h1, .bg-slate-900 h2, .bg-slate-900 h3,
+.bg-slate-950 h1, .bg-slate-950 h2, .bg-slate-950 h3 {
+  color: #ffffff;
+}
+
+/* Ensure inputs on dark surfaces have bright text and visible borders */
+.bg-slate-950 input:not([type="checkbox"]):not([type="radio"]),
+.bg-slate-950 textarea,
+.bg-slate-950 select,
+.bg-slate-900 input:not([type="checkbox"]):not([type="radio"]),
+.bg-slate-900 textarea,
+.bg-slate-900 select,
+.bg-slate-800 input:not([type="checkbox"]):not([type="radio"]),
+.bg-slate-800 textarea,
+.bg-slate-800 select {
+  color: #ffffff !important;
+}
+
+.bg-slate-950 input::placeholder,
+.bg-slate-950 textarea::placeholder,
+.bg-slate-900 input::placeholder,
+.bg-slate-900 textarea::placeholder,
+.bg-slate-800 input::placeholder,
+.bg-slate-800 textarea::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1;
+}
+
+/* =========================================================================
+   TABLE TYPOGRAPHY & CONTRAST
+   ========================================================================= */
+
+table th {
+  color: #334155;
+  font-weight: 700;
+}
+
+/* Custom Scrollbar for clean UI */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* =========================================================================
+   VENDOR ONBOARDING PORTAL (GOOGLE FORMS FULL-HEIGHT PASTEL BACKGROUND)
+   ========================================================================= */
+
+body.vendor-onboard-body,
+body.vendor-onboard-body > div,
+body.vendor-onboard-body .overflow-y-auto {
+  background-color: #f0ebf8 !important;
+}
