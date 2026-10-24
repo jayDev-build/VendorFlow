@@ -67,14 +67,6 @@ function VendorDetailContent() {
       setErrorMsg('');
       const data = await api.getVendor(vendorId);
       setVendor(data);
-      if (data.submissions && data.submissions.length > 0) {
-        setExpandedSubmissions(prev => {
-          if (Object.keys(prev).length === 0) {
-            return { [data.submissions![0].id]: true };
-          }
-          return prev;
-        });
-      }
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to load vendor details');
     } finally {
@@ -186,11 +178,10 @@ function VendorDetailContent() {
               type="button"
               onClick={handleDeleteVendor}
               disabled={actionLoading}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 border border-rose-300 rounded-lg text-xs font-semibold transition-colors shadow-2xs disabled:opacity-50 cursor-pointer"
+              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded-lg transition-colors shadow-2xs disabled:opacity-50 cursor-pointer"
               title={`Delete ${vendor.name}`}
             >
-              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-              <span>Delete Vendor</span>
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
         }
@@ -280,7 +271,7 @@ function VendorDetailContent() {
             </div>
           </div>
 
-          <div className="divide-y divide-slate-100">
+          <div className="overflow-x-auto">
             {vendor.documents.length === 0 ? (
               <div className="py-12 text-center text-slate-700 text-xs font-semibold">
                 <FileCheck2 className="w-10 h-10 text-slate-400 mx-auto mb-2" />
@@ -297,83 +288,79 @@ function VendorDetailContent() {
                 </div>
               </div>
             ) : (
-              vendor.documents.map((doc) => {
-                const downloadFullUrl = doc.download_url
-                  ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${doc.download_url}`
-                  : '#';
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                    <th className="py-3 px-5">Document</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4">Size / Format</th>
+                    <th className="py-3 px-4">Expiration</th>
+                    <th className="py-3 px-5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-normal">
+                  {vendor.documents.map((doc) => {
+                    const isExpired = doc.expiry_date && new Date(doc.expiry_date) < new Date();
+                    const isPdf = doc.mime_type === 'application/pdf' || /\.pdf$/i.test(doc.original_filename);
+                    const isImage = doc.mime_type?.startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(doc.original_filename);
 
-                const isExpired = doc.expiry_date && new Date(doc.expiry_date) < new Date();
-                const isImage = doc.mime_type?.startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(doc.original_filename);
-                const isPdf = doc.mime_type === 'application/pdf' || /\.pdf$/i.test(doc.original_filename);
-
-                return (
-                  <div key={doc.id} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/60 transition-colors">
-                    <div className="flex items-start gap-3.5">
-                      {isImage && downloadFullUrl !== '#' ? (
-                        <img
-                          src={downloadFullUrl}
-                          alt={doc.original_filename}
-                          className="w-12 h-12 rounded-xl object-cover border border-slate-300 shadow-2xs shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => setReviewDoc(doc)}
-                        />
-                      ) : (
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${isPdf ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-indigo-50 border border-indigo-200 text-indigo-700'}`}>
-                          {isPdf ? 'PDF' : 'DOC'}
-                        </div>
-                      )}
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-slate-900 text-sm">{doc.document_type}</span>
+                    return (
+                      <tr key={doc.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-3.5 px-5">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${isPdf ? 'bg-rose-50 border border-rose-200 text-rose-700' : isImage ? 'bg-purple-50 border border-purple-200 text-purple-700' : 'bg-indigo-50 border border-indigo-200 text-indigo-700'}`}>
+                              {isPdf ? 'PDF' : isImage ? 'IMG' : 'DOC'}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-bold text-slate-900 truncate">{doc.document_type}</div>
+                              <div className="text-[11px] text-slate-600 truncate">{doc.original_filename}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 whitespace-nowrap">
                           <StatusBadge status={doc.status} size="sm" />
-                        </div>
-                        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-700 font-medium">
-                          <span className="text-slate-800 font-medium truncate max-w-xs">{doc.original_filename}</span>
-                          <span>•</span>
-                          <span>{(doc.file_size / 1024).toFixed(0)} KB</span>
-                          {doc.expiry_date && (
-                            <>
-                              <span>•</span>
-                              <span className={`flex items-center gap-1 font-semibold ${isExpired ? 'text-rose-600 font-bold' : 'text-amber-800'}`}>
-                                <Calendar className="w-3.5 h-3.5" />
-                                <span>Expires: {new Date(doc.expiry_date).toLocaleDateString()}</span>
-                              </span>
-                            </>
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-600 font-mono text-[11px] whitespace-nowrap">
+                          {(doc.file_size / 1024).toFixed(0)} KB • {doc.mime_type?.split('/')[1]?.toUpperCase() || 'FILE'}
+                        </td>
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          {doc.expiry_date ? (
+                            <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded border ${
+                              isExpired ? 'bg-rose-50 text-rose-700 border-rose-300 font-bold' : 'bg-slate-100 text-slate-800 border-slate-200'
+                            }`}>
+                              <Calendar className="w-3 h-3" />
+                              <span>{new Date(doc.expiry_date).toLocaleDateString()}</span>
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 font-medium text-[11px]">—</span>
                           )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 self-end sm:self-center">
-                      <a
-                        href={downloadFullUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-3 py-1.5 border border-slate-300 text-slate-800 hover:bg-slate-100 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5 text-slate-600" />
-                        <span>{isPdf ? 'View PDF' : isImage ? 'View Image' : 'Download'}</span>
-                      </a>
-                      <button
-                        onClick={() => setReviewDoc(doc)}
-                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5" />
-                        <span>Review</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteDocument(doc.id, doc.original_filename)}
-                        disabled={deletingDocId === doc.id}
-                        className="px-2.5 py-1.5 border border-rose-300 text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
-                        title="Delete document"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                        <span>Delete</span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
+                        </td>
+                        <td className="py-3.5 px-5 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setReviewDoc(doc)}
+                              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+                            >
+                              <ShieldCheck className="w-3.5 h-3.5" />
+                              <span>Review</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteDocument(doc.id, doc.original_filename)}
+                              disabled={deletingDocId === doc.id}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                              title={`Delete ${doc.original_filename}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             )}
           </div>
         </div>
@@ -555,66 +542,57 @@ function VendorDetailContent() {
                               </span>
                             </h4>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              {sub.documents.map((doc: any) => {
-                                const downloadFullUrl = doc.download_url
-                                  ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${doc.download_url}`
-                                  : '#';
-                                const isPdf = doc.mime_type === 'application/pdf' || /\.pdf$/i.test(doc.original_filename);
-                                const isImage = doc.mime_type?.startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(doc.original_filename);
+                            <div className="overflow-x-auto bg-white rounded-xl border border-slate-200/90 shadow-2xs">
+                              <table className="w-full text-left border-collapse text-xs">
+                                <thead>
+                                  <tr className="border-b border-slate-200 bg-slate-50/80 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                                    <th className="py-2.5 px-4">Document</th>
+                                    <th className="py-2.5 px-4">Status</th>
+                                    <th className="py-2.5 px-4">Size</th>
+                                    <th className="py-2.5 px-4 text-right">Action</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 font-normal">
+                                  {sub.documents.map((doc: any) => {
+                                    const isPdf = doc.mime_type === 'application/pdf' || /\.pdf$/i.test(doc.original_filename);
+                                    const isImage = doc.mime_type?.startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(doc.original_filename);
 
-                                return (
-                                  <div
-                                    key={doc.id}
-                                    className="p-3.5 bg-white rounded-xl border border-slate-200/90 shadow-2xs flex items-center justify-between gap-3"
-                                  >
-                                    <div className="flex items-center gap-3 min-w-0">
-                                      <div
-                                        className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
-                                          isPdf
-                                            ? 'bg-rose-50 border border-rose-200 text-rose-700'
-                                            : isImage
-                                            ? 'bg-purple-50 border border-purple-200 text-purple-700'
-                                            : 'bg-indigo-50 border border-indigo-200 text-indigo-700'
-                                        }`}
-                                      >
-                                        {isPdf ? 'PDF' : isImage ? 'IMG' : 'DOC'}
-                                      </div>
-                                      <div className="min-w-0 space-y-0.5">
-                                        <div className="text-xs font-bold text-slate-900 truncate">
-                                          {doc.document_type || doc.original_filename}
-                                        </div>
-                                        <div className="text-[11px] text-slate-500 truncate">
-                                          {doc.original_filename} • {(doc.file_size / 1024).toFixed(0)} KB
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-1.5 shrink-0">
-                                      <StatusBadge status={doc.status} size="sm" />
-                                      {doc.download_url && (
-                                        <a
-                                          href={downloadFullUrl}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
-                                          title="View / Download"
-                                        >
-                                          <Download className="w-3.5 h-3.5" />
-                                        </a>
-                                      )}
-                                      <button
-                                        type="button"
-                                        onClick={() => setReviewDoc(doc as DocumentItem)}
-                                        className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
-                                      >
-                                        <ShieldCheck className="w-3 h-3" />
-                                        <span>Review</span>
-                                      </button>
-                                    </div>
-                                  </div>
-                                );
-                              })}
+                                    return (
+                                      <tr key={doc.id} className="hover:bg-slate-50/60 transition-colors">
+                                        <td className="py-2.5 px-4">
+                                          <div className="flex items-center gap-2.5">
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-[10px] shrink-0 ${
+                                              isPdf ? 'bg-rose-50 border border-rose-200 text-rose-700' : isImage ? 'bg-purple-50 border border-purple-200 text-purple-700' : 'bg-indigo-50 border border-indigo-200 text-indigo-700'
+                                            }`}>
+                                              {isPdf ? 'PDF' : isImage ? 'IMG' : 'DOC'}
+                                            </div>
+                                            <div className="min-w-0">
+                                              <div className="text-xs font-bold text-slate-900 truncate">{doc.document_type || doc.original_filename}</div>
+                                              <div className="text-[10px] text-slate-500 truncate">{doc.original_filename}</div>
+                                            </div>
+                                          </div>
+                                        </td>
+                                        <td className="py-2.5 px-4 whitespace-nowrap">
+                                          <StatusBadge status={doc.status} size="sm" />
+                                        </td>
+                                        <td className="py-2.5 px-4 text-[11px] text-slate-500 font-mono whitespace-nowrap">
+                                          {(doc.file_size / 1024).toFixed(0)} KB
+                                        </td>
+                                        <td className="py-2.5 px-4 text-right whitespace-nowrap">
+                                          <button
+                                            type="button"
+                                            onClick={() => setReviewDoc(doc as DocumentItem)}
+                                            className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer"
+                                          >
+                                            <ShieldCheck className="w-3 h-3" />
+                                            <span>Review</span>
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
                             </div>
                           </div>
                         )}

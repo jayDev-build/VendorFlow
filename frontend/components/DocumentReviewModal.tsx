@@ -36,9 +36,7 @@ export const DocumentReviewModal: React.FC<DocumentReviewModalProps> = ({
 }) => {
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
-  const [resubmitReason, setResubmitReason] = useState('');
   const [showRejectBox, setShowRejectBox] = useState(false);
-  const [showResubmitBox, setShowResubmitBox] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [dispatchedLinkResult, setDispatchedLinkResult] = useState<{
     action: 'reject' | 'resubmit';
@@ -88,34 +86,6 @@ export const DocumentReviewModal: React.FC<DocumentReviewModalProps> = ({
       }
     } catch (e: any) {
       setErrorMsg(e.message || 'Rejection failed');
-    } finally {
-      setLoadingAction(null);
-    }
-  };
-
-  const handleRequestResubmission = async () => {
-    if (!resubmitReason.trim()) {
-      setErrorMsg('Resubmission explanation is required.');
-      return;
-    }
-    try {
-      setLoadingAction('resubmit');
-      setErrorMsg('');
-      const res = await api.requestResubmission(document.id, resubmitReason.trim());
-      onUpdated();
-      if (res?.resubmission_url) {
-        setDispatchedLinkResult({
-          action: 'resubmit',
-          url: res.resubmission_url,
-          vendorName: (document as any).vendor_name || 'Vendor',
-          vendorEmail: (document as any).vendor_email || '',
-          reason: resubmitReason.trim()
-        });
-      } else {
-        onClose();
-      }
-    } catch (e: any) {
-      setErrorMsg(e.message || 'Resubmission request failed');
     } finally {
       setLoadingAction(null);
     }
@@ -357,11 +327,11 @@ export const DocumentReviewModal: React.FC<DocumentReviewModalProps> = ({
           {showRejectBox && (
             <div className="p-4 bg-rose-50/60 border border-rose-200 rounded-xl space-y-2">
               <div className="flex items-center justify-between text-xs font-semibold text-rose-900">
-                <span>Reason for Rejection (Required)</span>
+                <span>Reason for Rejection / Replacement Required</span>
                 <button
                   type="button"
                   onClick={() => setShowRejectBox(false)}
-                  className="text-slate-600 hover:text-slate-900 text-xs font-medium"
+                  className="text-slate-600 hover:text-slate-900 text-xs font-medium cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -369,46 +339,16 @@ export const DocumentReviewModal: React.FC<DocumentReviewModalProps> = ({
               <textarea
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="Explain why this document was rejected (e.g. illegible signature, invalid tax number)..."
+                placeholder="Explain why this document was rejected (e.g. illegible signature, invalid tax number, expired)..."
                 rows={3}
                 className="w-full text-xs p-2.5 rounded-lg border border-rose-300 focus:outline-hidden focus:ring-2 focus:ring-rose-500 bg-white text-slate-900 placeholder-slate-500 font-medium"
               />
               <button
                 onClick={handleReject}
                 disabled={loadingAction === 'reject'}
-                className="w-full py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-medium transition-colors"
+                className="w-full py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-medium transition-colors cursor-pointer"
               >
                 {loadingAction === 'reject' ? 'Rejecting...' : 'Confirm Rejection'}
-              </button>
-            </div>
-          )}
-
-          {/* Resubmission input box */}
-          {showResubmitBox && (
-            <div className="p-4 bg-amber-50/60 border border-amber-200 rounded-xl space-y-2">
-              <div className="flex items-center justify-between text-xs font-semibold text-amber-900">
-                <span>Instructions for Resubmission (Required)</span>
-                <button
-                  type="button"
-                  onClick={() => setShowResubmitBox(false)}
-                  className="text-slate-600 hover:text-slate-900 text-xs font-medium"
-                >
-                  Cancel
-                </button>
-              </div>
-              <textarea
-                value={resubmitReason}
-                onChange={(e) => setResubmitReason(e.target.value)}
-                placeholder="Specify what needs to be corrected by the vendor (e.g. please upload full 2-page certificate)..."
-                rows={3}
-                className="w-full text-xs p-2.5 rounded-lg border border-amber-300 focus:outline-hidden focus:ring-2 focus:ring-amber-500 bg-white text-slate-900 placeholder-slate-500 font-medium"
-              />
-              <button
-                onClick={handleRequestResubmission}
-                disabled={loadingAction === 'resubmit'}
-                className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-medium transition-colors"
-              >
-                {loadingAction === 'resubmit' ? 'Sending Request...' : 'Send Resubmission Request'}
               </button>
             </div>
           )}
@@ -456,36 +396,20 @@ export const DocumentReviewModal: React.FC<DocumentReviewModalProps> = ({
             {!showRejectBox && (
               <button
                 type="button"
-                onClick={() => {
-                  setShowRejectBox(true);
-                  setShowResubmitBox(false);
-                }}
+                onClick={() => setShowRejectBox(true)}
                 className="px-3 py-2 text-rose-700 hover:bg-rose-50 border border-rose-200 rounded-lg text-xs font-medium transition-colors cursor-pointer"
               >
                 Reject
-              </button>
-            )}
-            {!showResubmitBox && (
-              <button
-                type="button"
-                onClick={() => {
-                  setShowResubmitBox(true);
-                  setShowRejectBox(false);
-                }}
-                className="px-3 py-2 text-amber-700 hover:bg-amber-50 border border-amber-200 rounded-lg text-xs font-medium transition-colors cursor-pointer"
-              >
-                Request Resubmission
               </button>
             )}
             <button
               type="button"
               onClick={handleDelete}
               disabled={loadingAction === 'delete'}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 border border-rose-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
               title="Delete document"
             >
-              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-              <span>{loadingAction === 'delete' ? 'Deleting...' : 'Delete'}</span>
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
 

@@ -273,11 +273,10 @@ export default function VendorsPage() {
                             type="button"
                             onClick={(e) => handleDeleteVendor(vendor.id, vendor.name, e)}
                             disabled={deletingVendorId === vendor.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 border border-rose-300 rounded-lg transition-colors cursor-pointer shadow-2xs disabled:opacity-50"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
                             title={`Delete ${vendor.name}`}
                           >
-                            <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                            <span>Delete</span>
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </td>

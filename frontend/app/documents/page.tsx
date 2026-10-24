@@ -238,15 +238,6 @@ export default function DocumentsPage() {
                         </td>
                         <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1.5">
-                            <a
-                              href={downloadFullUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-                              title="Download document"
-                            >
-                              <Download className="w-3.5 h-3.5" />
-                            </a>
                             <button
                               onClick={() => setSelectedDoc(doc)}
                               className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-2xs transition-colors"
@@ -257,11 +248,10 @@ export default function DocumentsPage() {
                               type="button"
                               onClick={(e) => handleDeleteDocument(doc.id, doc.original_filename, e)}
                               disabled={deletingDocId === doc.id}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 border border-rose-300 rounded-lg transition-colors cursor-pointer shadow-2xs disabled:opacity-50"
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
                               title={`Delete ${doc.original_filename}`}
                             >
-                              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                              <span>Delete</span>
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </td>
