@@ -293,9 +293,10 @@ def request_missing_documents(
     subject = f"Action Required: Compliance Documents Request from {current_org.name}"
     body = (
         f"Hello {vendor.name},\n\n"
-        f"This is a request from {current_org.name} regarding your vendor onboarding files.\n"
-        f"Please check your submission portal or reach out to your administrator to provide missing or updated documentation.\n\n"
-        f"Thank you,\n{current_org.name} Compliance Team"
+        f"This is a compliance documentation request from {current_user.full_name} ({current_user.email}) at {current_org.name}.\n"
+        f"Please check your submission portal or reach out directly to provide missing or updated documentation.\n\n"
+        f"If you have questions, reply directly to this email to reach {current_user.full_name}.\n\n"
+        f"Thank you,\n{current_user.full_name} ({current_user.email})\n{current_org.name} Compliance Team"
     )
 
     job = notification_service.record_and_send_notification(
@@ -307,7 +308,46 @@ def request_missing_documents(
         recipient_email=vendor.contact_email,
         subject=subject,
         body_text=body,
-        idempotency_key=f"doc_req_{vendor.id}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}"
+        idempotency_key=f"doc_req_{vendor.id}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}",
+        reply_to=current_user.email,
+        sender_name=f"{current_user.full_name} via {current_org.name}"
     )
 
     return {"success": True, "message": "Document request notification sent to vendor.", "job_id": job.id}
+
+@router.delete("/{vendor_id}")
+def delete_vendor(
+    vendor_id: str,
+    current_org: Organization = Depends(get_current_org),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+    verify_tenant_ownership(vendor.organization_id, current_org.id, "vendor")
+
+    vendor_name = vendor.name
+
+    # Delete all associated physical files from storage
+    for doc in vendor.documents:
+        if doc.storage_path:
+            storage_service.delete_file(doc.storage_path)
+
+    # Delete vendor (cascades to documents, reviews, onboarding, notifications in db)
+    db.delete(vendor)
+    db.commit()
+
+    # Record audit log
+    audit = AuditLog(
+        organization_id=current_org.id,
+        user_id=current_user.id,
+        action="VENDOR_DELETED",
+        entity_type="vendor",
+        entity_id=vendor_id,
+        details={"name": vendor_name}
+    )
+    db.add(audit)
+    db.commit()
+
+    return {"success": True, "message": f"Vendor '{vendor_name}' deleted successfully", "vendor_id": vendor_id}

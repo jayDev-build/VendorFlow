@@ -14,10 +14,13 @@ import {
   ExternalLink,
   Mail,
   Phone,
-  ArrowRight
+  ArrowRight,
+  Trash2,
+  Upload
 } from 'lucide-react';
 import { TopNav } from '@/components/TopNav';
 import { StatusBadge } from '@/components/StatusBadge';
+import { UploadDocumentModal } from '@/components/UploadDocumentModal';
 import { api } from '@/lib/api';
 import { VendorListItem } from '@/lib/types';
 
@@ -27,9 +30,31 @@ export default function VendorsPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Modals & Upload
+  const [showUploadDocModal, setShowUploadDocModal] = useState(false);
+  const [selectedVendorForUpload, setSelectedVendorForUpload] = useState<string | undefined>(undefined);
+
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
+  const [deletingVendorId, setDeletingVendorId] = useState<string | null>(null);
+
+  const handleDeleteVendor = async (vendorId: string, vendorName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm(`Are you sure you want to permanently delete vendor "${vendorName}" and all associated compliance records?`)) {
+      return;
+    }
+
+    try {
+      setDeletingVendorId(vendorId);
+      await api.deleteVendor(vendorId);
+      fetchVendors();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to delete vendor');
+    } finally {
+      setDeletingVendorId(null);
+    }
+  };
 
   const fetchVendors = async () => {
     try {
@@ -59,13 +84,28 @@ export default function VendorsPage() {
         title="Vendors Directory"
         subtitle="Search, filter, and inspect onboarding submissions across all suppliers"
         actions={
-          <Link
-            href="/workflows/new"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Onboard New Vendor</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedVendorForUpload(undefined);
+                setShowUploadDocModal(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-lg text-xs font-bold transition-all shadow-2xs hover:shadow-xs cursor-pointer active:scale-[0.98]"
+              title="Upload document directly on behalf of a vendor"
+            >
+              <Upload className="w-3.5 h-3.5 text-indigo-600" />
+              <span>+ Upload Document</span>
+            </button>
+
+            <Link
+              href="/workflows/new"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Onboard New Vendor</span>
+            </Link>
+          </div>
         }
       />
 
@@ -210,12 +250,36 @@ export default function VendorsPage() {
                         {new Date(vendor.last_updated).toLocaleDateString()}
                       </td>
                       <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                        <Link
-                          href={`/vendors/${vendor.id}`}
-                          className="px-2.5 py-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors"
-                        >
-                          View Details →
-                        </Link>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedVendorForUpload(vendor.id);
+                              setShowUploadDocModal(true);
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:text-indigo-600 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors shadow-2xs cursor-pointer"
+                            title={`Upload document for ${vendor.name}`}
+                          >
+                            <Upload className="w-3.5 h-3.5 text-slate-500" />
+                            <span>Upload</span>
+                          </button>
+                          <Link
+                            href={`/vendors/${vendor.id}`}
+                            className="px-2.5 py-1 text-xs font-semibold text-indigo-700 hover:text-indigo-900 hover:bg-indigo-50 border border-indigo-200 rounded-lg transition-colors shadow-2xs"
+                          >
+                            View Details →
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteVendor(vendor.id, vendor.name, e)}
+                            disabled={deletingVendorId === vendor.id}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 border border-rose-300 rounded-lg transition-colors cursor-pointer shadow-2xs disabled:opacity-50"
+                            title={`Delete ${vendor.name}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                            <span>Delete</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -225,6 +289,18 @@ export default function VendorsPage() {
           </div>
         </div>
       </main>
+
+      {/* Upload Document Modal */}
+      {showUploadDocModal && (
+        <UploadDocumentModal
+          initialVendorId={selectedVendorForUpload}
+          onClose={() => {
+            setShowUploadDocModal(false);
+            setSelectedVendorForUpload(undefined);
+          }}
+          onSuccess={() => fetchVendors()}
+        />
+      )}
     </div>
   );
 }

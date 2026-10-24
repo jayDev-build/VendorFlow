@@ -16,10 +16,33 @@ import {
   RotateCcw,
   Check,
   ChevronDown,
-  Info
+  Info,
+  Trash2,
+  Eye,
+  X,
+  Edit3,
+  Download,
+  ExternalLink
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { PublicInvitationData, WorkflowField } from '@/lib/types';
+
+interface UploadedFileRecord {
+  id: string;
+  filename: string;
+  expiry?: string;
+  mime_type?: string;
+  file_size?: number;
+  view_url?: string;
+  download_url?: string;
+}
+
+interface PreviewModalState {
+  url: string;
+  downloadUrl?: string;
+  filename: string;
+  isPdf: boolean;
+}
 
 function VendorOnboardingPortalContent() {
   const routeParams = useParams();
@@ -34,12 +57,16 @@ function VendorOnboardingPortalContent() {
   // Form values
   const [formResponses, setFormResponses] = useState<Record<string, any>>({});
   const [documentExpiries, setDocumentExpiries] = useState<Record<string, string>>({});
-  const [uploadedFiles, setUploadedFiles] = useState<Record<string, { id: string; filename: string; expiry?: string }>>({});
+  const [uploadedFiles, setUploadedFiles] = useState<Record<string, UploadedFileRecord>>({});
   const [uploadingFieldId, setUploadingFieldId] = useState<string | null>(null);
+  const [deletingFieldId, setDeletingFieldId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Active focused question card (Google Forms signature left border highlight)
   const [activeFieldId, setActiveFieldId] = useState<string | null>(null);
+
+  // Media preview modal (for viewing PDFs or images)
+  const [previewModal, setPreviewModal] = useState<PreviewModalState | null>(null);
 
   useEffect(() => {
     document.body.classList.add('vendor-onboard-body');
@@ -63,10 +90,18 @@ function VendorOnboardingPortalContent() {
           setFormResponses(res.existing_responses);
         }
         if (res.existing_documents) {
-          const docsMap: Record<string, any> = {};
-          const expMap: Record<string, any> = {};
+          const docsMap: Record<string, UploadedFileRecord> = {};
+          const expMap: Record<string, string> = {};
           res.existing_documents.forEach((d) => {
-            docsMap[d.field_id] = { id: d.id, filename: d.original_filename, expiry: d.expiry_date };
+            docsMap[d.field_id] = {
+              id: d.id,
+              filename: d.original_filename,
+              expiry: d.expiry_date,
+              mime_type: d.mime_type,
+              file_size: d.file_size,
+              view_url: d.view_url,
+              download_url: d.download_url
+            };
             if (d.expiry_date) {
               expMap[d.field_id] = d.expiry_date.split('T')[0];
             }
@@ -96,13 +131,45 @@ function VendorOnboardingPortalContent() {
         [field.id]: {
           id: res.document_id,
           filename: res.original_filename,
-          expiry: res.expiry_date
+          expiry: res.expiry_date,
+          mime_type: res.mime_type || file.type,
+          file_size: res.file_size || file.size,
+          view_url: res.view_url,
+          download_url: res.download_url
         }
       }));
     } catch (err: any) {
       setErrorMsg(err.message || `Failed to upload ${field.label}`);
     } finally {
       setUploadingFieldId(null);
+    }
+  };
+
+  const handleDeleteFile = async (fieldId: string) => {
+    const doc = uploadedFiles[fieldId];
+    if (!doc) return;
+    if (!window.confirm(`Are you sure you want to delete ${doc.filename}?`)) return;
+
+    try {
+      setDeletingFieldId(fieldId);
+      setErrorMsg('');
+      await api.deletePublicDocument(token, doc.id);
+
+      setUploadedFiles((prev) => {
+        const next = { ...prev };
+        delete next[fieldId];
+        return next;
+      });
+
+      setDocumentExpiries((prev) => {
+        const next = { ...prev };
+        delete next[fieldId];
+        return next;
+      });
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to delete file');
+    } finally {
+      setDeletingFieldId(null);
     }
   };
 
@@ -145,6 +212,13 @@ function VendorOnboardingPortalContent() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const getFullUrl = (relativeUrl?: string) => {
+    if (!relativeUrl) return '';
+    if (relativeUrl.startsWith('http')) return relativeUrl;
+    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    return `${base}${relativeUrl}`;
   };
 
   if (loading) {
@@ -198,7 +272,17 @@ function VendorOnboardingPortalContent() {
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
+              {/* Action Buttons: Edit Your Response & View Response */}
+              <div className="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSubmittedSuccess(false)}
+                  className="text-sm font-semibold text-[#673ab7] hover:underline flex items-center gap-1.5 cursor-pointer bg-purple-50 hover:bg-purple-100 px-3.5 py-2 rounded-md border border-purple-200 transition-colors"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  <span>Edit your response</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setShowSummary(!showSummary)}
@@ -210,7 +294,7 @@ function VendorOnboardingPortalContent() {
 
               {/* Collapsible response summary */}
               {showSummary && (
-                <div className="mt-4 pt-4 border-t border-slate-100 space-y-4">
+                <div className="mt-4 pt-4 border-t border-slate-100 space-y-5">
                   {Object.keys(formResponses).length > 0 && (
                     <div className="space-y-3">
                       <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
@@ -241,18 +325,66 @@ function VendorOnboardingPortalContent() {
                       <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
                         Uploaded Compliance Documents ({Object.keys(uploadedFiles).length})
                       </h2>
-                      <div className="space-y-2">
-                        {Object.entries(uploadedFiles).map(([fId, doc]) => (
-                          <div
-                            key={fId}
-                            className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between text-xs"
-                          >
-                            <span className="font-medium text-slate-900">{doc.filename}</span>
-                            <span className="text-[11px] text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-300">
-                              Uploaded
-                            </span>
-                          </div>
-                        ))}
+                      <div className="space-y-3">
+                        {Object.entries(uploadedFiles).map(([fId, doc]) => {
+                          const isImg = doc.mime_type?.startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(doc.filename);
+                          const isPdf = doc.mime_type === 'application/pdf' || /\.pdf$/i.test(doc.filename);
+                          const viewUrl = getFullUrl(doc.view_url);
+                          const dlUrl = getFullUrl(doc.download_url);
+
+                          return (
+                            <div
+                              key={fId}
+                              className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                            >
+                              <div className="flex items-center gap-3">
+                                {isImg && viewUrl ? (
+                                  <img
+                                    src={viewUrl}
+                                    alt={doc.filename}
+                                    className="w-12 h-12 object-cover rounded border border-slate-300"
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 rounded bg-indigo-50 border border-indigo-200 flex items-center justify-center font-bold text-indigo-700 text-xs">
+                                    {isPdf ? 'PDF' : 'DOC'}
+                                  </div>
+                                )}
+                                <div>
+                                  <span className="font-semibold text-slate-900 block truncate max-w-xs">{doc.filename}</span>
+                                  {doc.expiry && (
+                                    <span className="text-[11px] text-amber-800 font-medium">
+                                      Expiry: {new Date(doc.expiry).toLocaleDateString()}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 self-end sm:self-center">
+                                {viewUrl && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setPreviewModal({ url: viewUrl, downloadUrl: dlUrl, filename: doc.filename, isPdf })}
+                                    className="px-2.5 py-1 text-xs font-semibold text-[#673ab7] hover:bg-purple-100/60 rounded border border-purple-200 flex items-center gap-1 transition-colors"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                    <span>{isPdf ? 'View PDF' : 'View Image'}</span>
+                                  </button>
+                                )}
+                                {dlUrl && (
+                                  <a
+                                    href={dlUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="p-1 text-slate-500 hover:text-slate-800 rounded transition-colors"
+                                    title="Download file"
+                                  >
+                                    <Download className="w-4 h-4" />
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -269,6 +401,43 @@ function VendorOnboardingPortalContent() {
             </div>
           </div>
         </div>
+
+        {/* Media Preview Modal */}
+        {previewModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
+              <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                <span className="font-semibold text-slate-900 text-sm truncate max-w-md">{previewModal.filename}</span>
+                <div className="flex items-center gap-2">
+                  {previewModal.downloadUrl && (
+                    <a
+                      href={previewModal.downloadUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-md text-xs font-semibold flex items-center gap-1 border border-slate-300"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download</span>
+                    </a>
+                  )}
+                  <button
+                    onClick={() => setPreviewModal(null)}
+                    className="p-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-200/60"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+              <div className="p-4 bg-slate-100 flex-1 overflow-auto flex items-center justify-center min-h-[400px]">
+                {previewModal.isPdf ? (
+                  <iframe src={previewModal.url} className="w-full h-[75vh] rounded-lg border border-slate-300 bg-white" title={previewModal.filename} />
+                ) : (
+                  <img src={previewModal.url} alt={previewModal.filename} className="max-h-[75vh] max-w-full object-contain rounded-lg shadow-sm" />
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -331,7 +500,19 @@ function VendorOnboardingPortalContent() {
           {fields.map((field) => {
             const isUploaded = uploadedFiles[field.id];
             const isUploadingThis = uploadingFieldId === field.id;
+            const isDeletingThis = deletingFieldId === field.id;
             const isActive = activeFieldId === field.id;
+
+            const isImg = isUploaded && (
+              isUploaded.mime_type?.startsWith('image/') ||
+              /\.(png|jpe?g|webp|gif)$/i.test(isUploaded.filename)
+            );
+            const isPdf = isUploaded && (
+              isUploaded.mime_type === 'application/pdf' ||
+              /\.pdf$/i.test(isUploaded.filename)
+            );
+            const viewUrl = isUploaded ? getFullUrl(isUploaded.view_url) : '';
+            const downloadUrl = isUploaded ? getFullUrl(isUploaded.download_url) : '';
 
             return (
               <div
@@ -375,27 +556,77 @@ function VendorOnboardingPortalContent() {
 
                     {isUploaded ? (
                       <div className="space-y-3">
-                        <div className="inline-flex items-center gap-2.5 px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-md text-sm text-slate-800 max-w-full">
+                        {/* Image Thumbnail Preview directly on question card */}
+                        {isImg && viewUrl && (
+                          <div className="relative group w-36 h-36 rounded-lg overflow-hidden border border-slate-300 bg-slate-100 shadow-2xs">
+                            <img
+                              src={viewUrl}
+                              alt={isUploaded.filename}
+                              className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                              onClick={() => setPreviewModal({ url: viewUrl, downloadUrl, filename: isUploaded.filename, isPdf: false })}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setPreviewModal({ url: viewUrl, downloadUrl, filename: isUploaded.filename, isPdf: false })}
+                              className="absolute bottom-1.5 right-1.5 p-1.5 bg-slate-900/80 hover:bg-slate-900 text-white rounded-md text-xs flex items-center gap-1 transition-colors"
+                              title="View full image"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span className="text-[10px]">Preview</span>
+                            </button>
+                          </div>
+                        )}
+
+                        {/* File Chip & Actions */}
+                        <div className="flex flex-wrap items-center gap-2.5 px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-md text-sm text-slate-800 max-w-full">
                           <FileText className="w-4 h-4 text-slate-600 shrink-0" />
-                          <span className="truncate max-w-[280px] font-medium text-slate-900">
+                          <span className="truncate max-w-[220px] font-medium text-slate-900">
                             {isUploaded.filename}
                           </span>
                           <span className="text-[11px] text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-300">
                             Uploaded
                           </span>
-                          <label className="ml-2 text-xs text-[#673ab7] hover:underline font-semibold cursor-pointer">
-                            <span>Replace</span>
-                            <input
-                              type="file"
-                              accept={field.allowed_file_types?.join(',') || 'application/pdf,image/png,image/jpeg'}
-                              onChange={(e) => {
-                                if (e.target.files?.[0]) {
-                                  handleFileUpload(field, e.target.files[0]);
-                                }
-                              }}
-                              className="hidden"
-                            />
-                          </label>
+
+                          <div className="flex items-center gap-3 ml-auto">
+                            {/* View / Preview button */}
+                            {viewUrl && (
+                              <button
+                                type="button"
+                                onClick={() => setPreviewModal({ url: viewUrl, downloadUrl, filename: isUploaded.filename, isPdf })}
+                                className="text-xs font-semibold text-[#673ab7] hover:underline flex items-center gap-1 cursor-pointer"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>{isPdf ? 'View PDF' : 'View'}</span>
+                              </button>
+                            )}
+
+                            {/* Replace Action */}
+                            <label className="text-xs text-slate-600 hover:text-slate-900 font-semibold cursor-pointer">
+                              <span>Replace</span>
+                              <input
+                                type="file"
+                                accept={field.allowed_file_types?.join(',') || 'application/pdf,image/png,image/jpeg'}
+                                onChange={(e) => {
+                                  if (e.target.files?.[0]) {
+                                    handleFileUpload(field, e.target.files[0]);
+                                  }
+                                }}
+                                className="hidden"
+                              />
+                            </label>
+
+                            {/* Delete Multimedia Action */}
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteFile(field.id)}
+                              disabled={isDeletingThis}
+                              className="text-xs font-semibold text-rose-600 hover:text-rose-800 flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                              title="Delete uploaded document"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                              <span>{isDeletingThis ? 'Deleting...' : 'Delete'}</span>
+                            </button>
+                          </div>
                         </div>
 
                         {/* Certificate Expiration Date Picker */}
@@ -414,6 +645,20 @@ function VendorOnboardingPortalContent() {
                               }
                               className="border-0 border-b border-slate-300 focus:border-b-2 focus:border-[#673ab7] outline-hidden py-1 px-2 text-sm text-slate-900 bg-transparent transition-all"
                             />
+                            {documentExpiries[field.id] && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const next = { ...documentExpiries };
+                                  delete next[field.id];
+                                  setDocumentExpiries(next);
+                                }}
+                                className="text-xs text-slate-400 hover:text-slate-600"
+                                title="Clear date"
+                              >
+                                Clear date
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -461,7 +706,7 @@ function VendorOnboardingPortalContent() {
                     )}
                   </div>
                 ) : field.field_type === 'dropdown' ? (
-                  <div className="pt-1">
+                  <div className="pt-1 flex items-center gap-2">
                     <select
                       required={field.required}
                       value={formResponses[field.id] || ''}
@@ -478,9 +723,18 @@ function VendorOnboardingPortalContent() {
                         </option>
                       ))}
                     </select>
+                    {formResponses[field.id] && (
+                      <button
+                        type="button"
+                        onClick={() => setFormResponses({ ...formResponses, [field.id]: '' })}
+                        className="text-xs text-slate-500 hover:text-slate-800 underline"
+                      >
+                        Clear selection
+                      </button>
+                    )}
                   </div>
                 ) : field.field_type === 'long_text' ? (
-                  <div className="pt-1">
+                  <div className="pt-1 relative">
                     <textarea
                       required={field.required}
                       rows={2}
@@ -490,8 +744,18 @@ function VendorOnboardingPortalContent() {
                         setFormResponses({ ...formResponses, [field.id]: e.target.value })
                       }
                       placeholder="Your answer"
-                      className="w-full border-0 border-b border-slate-300 focus:border-b-2 focus:border-[#673ab7] outline-hidden py-2 text-sm text-slate-900 placeholder:text-slate-400 bg-transparent transition-all resize-y min-h-[44px]"
+                      className="w-full border-0 border-b border-slate-300 focus:border-b-2 focus:border-[#673ab7] outline-hidden py-2 pr-7 text-sm text-slate-900 placeholder:text-slate-400 bg-transparent transition-all resize-y min-h-[44px]"
                     />
+                    {formResponses[field.id] && (
+                      <button
+                        type="button"
+                        onClick={() => setFormResponses({ ...formResponses, [field.id]: '' })}
+                        className="absolute right-1 top-2.5 text-slate-400 hover:text-slate-600"
+                        title="Clear answer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 ) : field.field_type === 'checkbox' ? (
                   <div className="pt-2">
@@ -509,7 +773,7 @@ function VendorOnboardingPortalContent() {
                     </label>
                   </div>
                 ) : field.field_type === 'date' ? (
-                  <div className="pt-1">
+                  <div className="pt-1 flex items-center gap-2">
                     <input
                       type="date"
                       required={field.required}
@@ -520,9 +784,18 @@ function VendorOnboardingPortalContent() {
                       }
                       className="border-0 border-b border-slate-300 focus:border-b-2 focus:border-[#673ab7] outline-hidden py-2 text-sm text-slate-900 bg-transparent transition-all"
                     />
+                    {formResponses[field.id] && (
+                      <button
+                        type="button"
+                        onClick={() => setFormResponses({ ...formResponses, [field.id]: '' })}
+                        className="text-xs text-slate-500 hover:text-slate-800 underline"
+                      >
+                        Clear date
+                      </button>
+                    )}
                   </div>
                 ) : (
-                  <div className="pt-1">
+                  <div className="pt-1 relative w-full sm:w-3/5">
                     <input
                       type={field.field_type === 'email' ? 'email' : field.field_type === 'phone' ? 'tel' : 'text'}
                       required={field.required}
@@ -532,8 +805,18 @@ function VendorOnboardingPortalContent() {
                         setFormResponses({ ...formResponses, [field.id]: e.target.value })
                       }
                       placeholder="Your answer"
-                      className="w-full sm:w-3/5 border-0 border-b border-slate-300 focus:border-b-2 focus:border-[#673ab7] outline-hidden py-2 text-sm text-slate-900 placeholder:text-slate-400 bg-transparent transition-all"
+                      className="w-full border-0 border-b border-slate-300 focus:border-b-2 focus:border-[#673ab7] outline-hidden py-2 pr-7 text-sm text-slate-900 placeholder:text-slate-400 bg-transparent transition-all"
                     />
+                    {formResponses[field.id] && (
+                      <button
+                        type="button"
+                        onClick={() => setFormResponses({ ...formResponses, [field.id]: '' })}
+                        className="absolute right-1 top-2.5 text-slate-400 hover:text-slate-600"
+                        title="Clear field"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -595,6 +878,43 @@ function VendorOnboardingPortalContent() {
           </p>
         </div>
       </div>
+
+      {/* Media Preview Lightbox Modal */}
+      {previewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
+            <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <span className="font-semibold text-slate-900 text-sm truncate max-w-md">{previewModal.filename}</span>
+              <div className="flex items-center gap-2">
+                {previewModal.downloadUrl && (
+                  <a
+                    href={previewModal.downloadUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-md text-xs font-semibold flex items-center gap-1 border border-slate-300"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download</span>
+                  </a>
+                )}
+                <button
+                  onClick={() => setPreviewModal(null)}
+                  className="p-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-200/60"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-4 bg-slate-100 flex-1 overflow-auto flex items-center justify-center min-h-[400px]">
+              {previewModal.isPdf ? (
+                <iframe src={previewModal.url} className="w-full h-[75vh] rounded-lg border border-slate-300 bg-white" title={previewModal.filename} />
+              ) : (
+                <img src={previewModal.url} alt={previewModal.filename} className="max-h-[75vh] max-w-full object-contain rounded-lg shadow-sm" />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import hash_token
@@ -77,8 +78,12 @@ def view_invitation(token: str, db: Session = Depends(get_db)):
                 "field_id": d.field_id,
                 "document_type": d.document_type,
                 "original_filename": d.original_filename,
+                "file_size": d.file_size,
+                "mime_type": d.mime_type,
                 "expiry_date": d.expiry_date.isoformat() if d.expiry_date else None,
-                "status": d.status
+                "status": d.status,
+                "view_url": f"/api/v1/public/invitations/{token}/documents/{d.id}/view",
+                "download_url": f"/api/v1/public/invitations/{token}/documents/{d.id}/view?download=true"
             })
 
     schema_def = version.schema_definition
@@ -205,8 +210,65 @@ async def upload_document(
         "document_type": doc.document_type,
         "original_filename": doc.original_filename,
         "file_size": doc.file_size,
+        "mime_type": doc.mime_type,
         "expiry_date": doc.expiry_date.isoformat() if doc.expiry_date else None,
-        "status": doc.status
+        "status": doc.status,
+        "view_url": f"/api/v1/public/invitations/{token}/documents/{doc.id}/view",
+        "download_url": f"/api/v1/public/invitations/{token}/documents/{doc.id}/view?download=true"
+    }
+
+@router.get("/{token}/documents/{document_id}/view")
+def view_public_document(
+    token: str,
+    document_id: str,
+    download: bool = Query(False),
+    db: Session = Depends(get_db)
+):
+    invitation = get_valid_invitation(token, db)
+    doc = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == invitation.organization_id
+    ).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    file_path = storage_service.get_file_path(doc.storage_path)
+    media_type = doc.mime_type or "application/octet-stream"
+    disposition = "attachment" if download else "inline"
+
+    return FileResponse(
+        path=file_path,
+        media_type=media_type,
+        filename=doc.original_filename if download else None,
+        content_disposition_type=disposition
+    )
+
+@router.delete("/{token}/documents/{document_id}")
+def delete_public_document(
+    token: str,
+    document_id: str,
+    db: Session = Depends(get_db)
+):
+    invitation = get_valid_invitation(token, db)
+    doc = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == invitation.organization_id
+    ).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    field_id = doc.field_id
+    if doc.storage_path:
+        storage_service.delete_file(doc.storage_path)
+
+    db.delete(doc)
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Document deleted successfully",
+        "field_id": field_id,
+        "document_id": document_id
     }
 
 @router.post("/{token}/submit")

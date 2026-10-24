@@ -227,7 +227,8 @@ def request_document_renewal(
         f"Hello {vendor.name},\n\n"
         f"Your {doc.document_type} (expiring on {date_str}) requires renewal to maintain active vendor compliance with {current_org.name}.\n\n"
         f"Please provide an updated certificate at your earliest convenience.\n\n"
-        f"Thank you,\n{current_org.name} Compliance Team"
+        f"If you have questions, reply directly to this email to reach {current_user.full_name}.\n\n"
+        f"Thank you,\n{current_user.full_name} ({current_user.email})\n{current_org.name} Compliance Team"
     )
 
     job = notification_service.record_and_send_notification(
@@ -239,7 +240,9 @@ def request_document_renewal(
         recipient_email=vendor.contact_email,
         subject=subject,
         body_text=body,
-        idempotency_key=f"renewal_req_{doc.id}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}"
+        idempotency_key=f"renewal_req_{doc.id}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}",
+        reply_to=current_user.email,
+        sender_name=f"{current_user.full_name} via {current_org.name}"
     )
 
     return {"success": True, "message": f"Renewal request dispatched to {vendor.contact_email}.", "job_id": job.id}

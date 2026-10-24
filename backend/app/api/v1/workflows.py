@@ -9,6 +9,7 @@ from app.models.models import (
     WorkflowTemplate,
     WorkflowVersion,
     Vendor,
+    VendorOnboarding,
     InvitationToken,
     ReminderRule,
     AuditLog,
@@ -261,6 +262,22 @@ def update_workflow(
     if current_version:
         db.refresh(current_version)
 
+    # Record audit log
+    audit = AuditLog(
+        organization_id=current_org.id,
+        user_id=current_user.id,
+        action="WORKFLOW_UPDATED",
+        entity_type="workflow_template",
+        entity_id=template.id,
+        details={
+            "name": template.name,
+            "status": template.status,
+            "version_number": current_version.version_number if current_version else 1
+        }
+    )
+    db.add(audit)
+    db.commit()
+
     return WorkflowResponse(
         id=template.id,
         organization_id=template.organization_id,
@@ -325,6 +342,53 @@ def archive_workflow(
     db.refresh(template)
 
     return get_workflow(workflow_id, current_org, db)
+
+@router.delete("/{workflow_id}")
+def delete_workflow(
+    workflow_id: str,
+    current_org: Organization = Depends(get_current_org),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    template = db.query(WorkflowTemplate).filter(WorkflowTemplate.id == workflow_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    verify_tenant_ownership(template.organization_id, current_org.id, "workflow")
+
+    wf_name = template.name
+    wf_category = template.vendor_category
+
+    # Get all version IDs for this workflow template
+    version_ids = [v.id for v in template.versions]
+
+    if version_ids:
+        # Delete or detach any linked vendor onboardings to prevent foreign key restrict violations
+        onboardings = db.query(VendorOnboarding).filter(VendorOnboarding.workflow_version_id.in_(version_ids)).all()
+        for ob in onboardings:
+            db.delete(ob)
+
+        # Delete any associated invitation tokens
+        invitations = db.query(InvitationToken).filter(InvitationToken.workflow_version_id.in_(version_ids)).all()
+        for inv in invitations:
+            db.delete(inv)
+
+    # Delete template (cascades to workflow_versions and reminder_rules)
+    db.delete(template)
+    db.commit()
+
+    # Record audit log
+    audit = AuditLog(
+        organization_id=current_org.id,
+        user_id=current_user.id,
+        action="WORKFLOW_DELETED",
+        entity_type="workflow_template",
+        entity_id=workflow_id,
+        details={"name": wf_name, "category": wf_category}
+    )
+    db.add(audit)
+    db.commit()
+
+    return {"success": True, "message": f"Workflow '{wf_name}' deleted successfully", "workflow_id": workflow_id}
 
 @router.post("/{workflow_id}/invitations", response_model=InvitationResponse)
 def create_vendor_invitation(
@@ -391,12 +455,13 @@ def create_vendor_invitation(
     subject = f"Vendor Onboarding Invitation from {current_org.name}"
     body = (
         f"Hello,\n\n"
-        f"{current_org.name} has invited you to complete your vendor onboarding and document submission.\n\n"
+        f"{current_user.full_name} ({current_user.email}) from {current_org.name} has invited you to complete your vendor onboarding and document submission.\n\n"
         f"Workflow: {template.name}\n\n"
         f"Please click the secure link below to upload required certificates and business details:\n"
         f"{invitation_url}\n\n"
         f"This secure link will expire in {payload.expires_in_days} days.\n\n"
-        f"Best regards,\n{current_org.name} Compliance Team"
+        f"If you have any questions, reply directly to this email to reach {current_user.full_name}.\n\n"
+        f"Best regards,\n{current_user.full_name} ({current_user.email})\n{current_org.name} Compliance Team"
     )
     notification_service.record_and_send_notification(
         db=db,
@@ -407,7 +472,9 @@ def create_vendor_invitation(
         recipient_email=vendor.contact_email,
         subject=subject,
         body_text=body,
-        idempotency_key=f"invite_{invitation.id}"
+        idempotency_key=f"invite_{invitation.id}",
+        reply_to=current_user.email,
+        sender_name=f"{current_user.full_name} via {current_org.name}"
     )
 
     return InvitationResponse(

@@ -12,7 +12,9 @@ import {
   Archive,
   RefreshCw,
   AlertTriangle,
-  FileText
+  FileText,
+  Trash2,
+  Pencil
 } from 'lucide-react';
 import { TopNav } from '@/components/TopNav';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -26,9 +28,10 @@ export default function WorkflowsPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Modals state
+  // Modals & action state
   const [activeWorkflowForInvite, setActiveWorkflowForInvite] = useState<{ id: string; name: string } | null>(null);
   const [activeSchemaForPreview, setActiveSchemaForPreview] = useState<WorkflowSchemaDefinition | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchWorkflows = async () => {
     try {
@@ -53,6 +56,22 @@ export default function WorkflowsPage() {
       fetchWorkflows();
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to publish workflow');
+    }
+  };
+
+  const handleDeleteWorkflow = async (workflowId: string, workflowName: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete workflow "${workflowName}"?`)) {
+      return;
+    }
+    try {
+      setDeletingId(workflowId);
+      setErrorMsg('');
+      await api.deleteWorkflow(workflowId);
+      fetchWorkflows();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to delete workflow');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -151,14 +170,32 @@ export default function WorkflowsPage() {
                   </div>
 
                   <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setActiveSchemaForPreview(wf.schema_definition)}
-                      className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg text-xs font-medium transition-colors"
-                      title="Preview Vendor View"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <Link
+                        href={`/workflows/${wf.id}/edit`}
+                        className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg text-xs font-medium transition-colors"
+                        title={wf.status === 'PUBLISHED' ? `Edit Workflow (creates v${wf.current_version_number + 1})` : "Edit Draft Workflow"}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => setActiveSchemaForPreview(wf.schema_definition)}
+                        className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg text-xs font-medium transition-colors"
+                        title="Preview Vendor View"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteWorkflow(wf.id, wf.name)}
+                        disabled={deletingId === wf.id}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                        title={`Delete ${wf.name}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
 
                     <div className="flex items-center gap-2">
                       {wf.status === 'DRAFT' ? (

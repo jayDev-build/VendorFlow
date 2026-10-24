@@ -14,11 +14,14 @@ import {
   Building2,
   RefreshCw,
   ShieldCheck,
-  AlertTriangle
+  AlertTriangle,
+  Trash2,
+  Upload
 } from 'lucide-react';
 import { TopNav } from '@/components/TopNav';
 import { StatusBadge } from '@/components/StatusBadge';
 import { DocumentReviewModal } from '@/components/DocumentReviewModal';
+import { UploadDocumentModal } from '@/components/UploadDocumentModal';
 import { api } from '@/lib/api';
 import { DocumentItem } from '@/lib/types';
 
@@ -31,6 +34,24 @@ export default function DocumentsPage() {
 
   // Modal
   const [selectedDoc, setSelectedDoc] = useState<DocumentItem | null>(null);
+  const [showUploadDocModal, setShowUploadDocModal] = useState(false);
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
+
+  const handleDeleteDocument = async (docId: string, docName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm(`Are you sure you want to permanently delete document "${docName}"?`)) {
+      return;
+    }
+    try {
+      setDeletingDocId(docId);
+      await api.deleteDocument(docId);
+      fetchDocs();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to delete document');
+    } finally {
+      setDeletingDocId(null);
+    }
+  };
 
   const fetchDocs = async () => {
     try {
@@ -60,13 +81,25 @@ export default function DocumentsPage() {
         title="Document Review Queue"
         subtitle="Manage compliance verifications, examine attachments, and execute server-side approvals"
         actions={
-          <button
-            onClick={fetchDocs}
-            className="p-2 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition-colors"
-            title="Refresh queue"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchDocs}
+              className="p-2 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              title="Refresh queue"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowUploadDocModal(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs hover:shadow cursor-pointer active:scale-[0.98]"
+              title="Upload document directly on behalf of a vendor"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>+ Upload Document</span>
+            </button>
+          </div>
         }
       />
 
@@ -144,6 +177,14 @@ export default function DocumentsPage() {
                       <FileCheck2 className="w-10 h-10 text-slate-400 mx-auto mb-2" />
                       <div className="font-bold text-slate-900 text-sm">No documents found</div>
                       <p className="text-xs text-slate-600 font-medium mt-1">No uploaded documents match the current filter.</p>
+                      <button
+                        type="button"
+                        onClick={() => setShowUploadDocModal(true)}
+                        className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold border border-indigo-200 transition-colors cursor-pointer"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Upload Document</span>
+                      </button>
                     </td>
                   </tr>
                 ) : (
@@ -212,6 +253,16 @@ export default function DocumentsPage() {
                             >
                               Review
                             </button>
+                            <button
+                              type="button"
+                              onClick={(e) => handleDeleteDocument(doc.id, doc.original_filename, e)}
+                              disabled={deletingDocId === doc.id}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 border border-rose-300 rounded-lg transition-colors cursor-pointer shadow-2xs disabled:opacity-50"
+                              title={`Delete ${doc.original_filename}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                              <span>Delete</span>
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -230,6 +281,14 @@ export default function DocumentsPage() {
           document={selectedDoc}
           onClose={() => setSelectedDoc(null)}
           onUpdated={fetchDocs}
+        />
+      )}
+
+      {/* Upload Document Modal */}
+      {showUploadDocModal && (
+        <UploadDocumentModal
+          onClose={() => setShowUploadDocModal(false)}
+          onSuccess={() => fetchDocs()}
         />
       )}
     </div>

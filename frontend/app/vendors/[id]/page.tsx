@@ -19,11 +19,14 @@ import {
   ShieldCheck,
   FileText,
   UserCheck,
-  ExternalLink
+  ExternalLink,
+  Trash2,
+  Upload
 } from 'lucide-react';
 import { TopNav } from '@/components/TopNav';
 import { StatusBadge } from '@/components/StatusBadge';
 import { DocumentReviewModal } from '@/components/DocumentReviewModal';
+import { UploadDocumentModal } from '@/components/UploadDocumentModal';
 import { api } from '@/lib/api';
 import { VendorDetail, DocumentItem } from '@/lib/types';
 
@@ -39,9 +42,11 @@ function VendorDetailContent() {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
 
   // Active document for review modal
   const [reviewDoc, setReviewDoc] = useState<DocumentItem | null>(null);
+  const [showUploadDocModal, setShowUploadDocModal] = useState(false);
 
   const fetchVendor = async () => {
     try {
@@ -60,20 +65,6 @@ function VendorDetailContent() {
     fetchVendor();
   }, [vendorId]);
 
-  const handleRequestMissing = async () => {
-    try {
-      setActionLoading(true);
-      setErrorMsg('');
-      await api.requestMissingDocuments(vendorId);
-      setSuccessMsg('Notification dispatched to vendor requesting documentation.');
-      fetchVendor();
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to dispatch request');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   const handleStatusChange = async (newStatus: string) => {
     try {
       setActionLoading(true);
@@ -83,6 +74,38 @@ function VendorDetailContent() {
       setErrorMsg(err.message || 'Failed to update status');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleDeleteVendor = async () => {
+    if (!vendor) return;
+    if (!window.confirm(`Are you sure you want to permanently delete vendor "${vendor.name}" and all associated compliance records?`)) {
+      return;
+    }
+    try {
+      setActionLoading(true);
+      setErrorMsg('');
+      await api.deleteVendor(vendorId);
+      router.push('/vendors');
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to delete vendor');
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteDocument = async (docId: string, docName: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete document "${docName}"?`)) {
+      return;
+    }
+    try {
+      setDeletingDocId(docId);
+      setErrorMsg('');
+      await api.deleteDocument(docId);
+      fetchVendor();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to delete document');
+    } finally {
+      setDeletingDocId(null);
     }
   };
 
@@ -122,12 +145,31 @@ function VendorDetailContent() {
               <span>Back</span>
             </Link>
             <button
-              onClick={handleRequestMissing}
-              disabled={actionLoading}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium transition-colors shadow-xs disabled:opacity-50"
+              type="button"
+              onClick={() => setShowUploadDocModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs hover:shadow cursor-pointer active:scale-[0.98]"
+              title="Upload document directly for this vendor"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>+ Upload Document</span>
+            </button>
+            <Link
+              href="/workflows/new"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-medium transition-colors border border-slate-300"
+              title="Request documents by creating a new workflow"
             >
               <Send className="w-3.5 h-3.5" />
               <span>Request Documents</span>
+            </Link>
+            <button
+              type="button"
+              onClick={handleDeleteVendor}
+              disabled={actionLoading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 border border-rose-300 rounded-lg text-xs font-semibold transition-colors shadow-2xs disabled:opacity-50 cursor-pointer"
+              title={`Delete ${vendor.name}`}
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+              <span>Delete Vendor</span>
             </button>
           </div>
         }
@@ -202,8 +244,18 @@ function VendorDetailContent() {
               <h2 className="text-base font-semibold text-slate-900">Required Documents & Verification Status</h2>
               <p className="text-xs text-slate-700 font-medium">Inspect uploaded vendor files, preview certificates, and execute verification approvals</p>
             </div>
-            <div className="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-800 border border-slate-300">
-              {vendor.documents.filter(d => d.status === 'APPROVED').length} / {vendor.documents.length} Verified
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowUploadDocModal(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Upload Document</span>
+              </button>
+              <div className="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-800 border border-slate-300">
+                {vendor.documents.filter(d => d.status === 'APPROVED').length} / {vendor.documents.length} Verified
+              </div>
             </div>
           </div>
 
@@ -213,6 +265,15 @@ function VendorDetailContent() {
                 <FileCheck2 className="w-10 h-10 text-slate-400 mx-auto mb-2" />
                 <span className="font-bold text-slate-900">No documents received yet</span>
                 <p className="text-[11px] text-slate-600 font-medium mt-1">Vendor has not uploaded files for this onboarding cycle.</p>
+                <div className="mt-4">
+                  <Link
+                    href="/workflows/new"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold transition-colors shadow-2xs"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Request Documents</span>
+                  </Link>
+                </div>
               </div>
             ) : (
               vendor.documents.map((doc) => {
@@ -221,13 +282,24 @@ function VendorDetailContent() {
                   : '#';
 
                 const isExpired = doc.expiry_date && new Date(doc.expiry_date) < new Date();
+                const isImage = doc.mime_type?.startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(doc.original_filename);
+                const isPdf = doc.mime_type === 'application/pdf' || /\.pdf$/i.test(doc.original_filename);
 
                 return (
                   <div key={doc.id} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/60 transition-colors">
                     <div className="flex items-start gap-3.5">
-                      <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
-                        PDF
-                      </div>
+                      {isImage && downloadFullUrl !== '#' ? (
+                        <img
+                          src={downloadFullUrl}
+                          alt={doc.original_filename}
+                          className="w-12 h-12 rounded-xl object-cover border border-slate-300 shadow-2xs shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => setReviewDoc(doc)}
+                        />
+                      ) : (
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${isPdf ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-indigo-50 border border-indigo-200 text-indigo-700'}`}>
+                          {isPdf ? 'PDF' : 'DOC'}
+                        </div>
+                      )}
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-slate-900 text-sm">{doc.document_type}</span>
@@ -257,8 +329,8 @@ function VendorDetailContent() {
                         rel="noreferrer"
                         className="px-3 py-1.5 border border-slate-300 text-slate-800 hover:bg-slate-100 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
                       >
-                        <Download className="w-3.5 h-3.5 text-slate-600" />
-                        <span>Download</span>
+                        <ExternalLink className="w-3.5 h-3.5 text-slate-600" />
+                        <span>{isPdf ? 'View PDF' : isImage ? 'View Image' : 'Download'}</span>
                       </a>
                       <button
                         onClick={() => setReviewDoc(doc)}
@@ -266,6 +338,16 @@ function VendorDetailContent() {
                       >
                         <ShieldCheck className="w-3.5 h-3.5" />
                         <span>Review</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteDocument(doc.id, doc.original_filename)}
+                        disabled={deletingDocId === doc.id}
+                        className="px-2.5 py-1.5 border border-rose-300 text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                        title="Delete document"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                        <span>Delete</span>
                       </button>
                     </div>
                   </div>
@@ -335,6 +417,18 @@ function VendorDetailContent() {
           document={reviewDoc}
           onClose={() => setReviewDoc(null)}
           onUpdated={fetchVendor}
+        />
+      )}
+
+      {/* Upload Document Modal */}
+      {showUploadDocModal && (
+        <UploadDocumentModal
+          initialVendorId={vendorId}
+          onClose={() => setShowUploadDocModal(false)}
+          onSuccess={() => {
+            fetchVendor();
+            setSuccessMsg('Document successfully uploaded and saved to vendor vault.');
+          }}
         />
       )}
     </div>

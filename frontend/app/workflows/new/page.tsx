@@ -20,7 +20,8 @@ import {
   ChevronDown,
   ChevronUp,
   FileText,
-  Share2
+  Share2,
+  X
 } from 'lucide-react';
 import { TopNav } from '@/components/TopNav';
 import { WorkflowPreviewModal } from '@/components/WorkflowPreviewModal';
@@ -28,24 +29,46 @@ import { InvitationModal } from '@/components/InvitationModal';
 import { api } from '@/lib/api';
 import { WorkflowField, WorkflowSchemaDefinition, FieldType } from '@/lib/types';
 
-const PRESET_PROMPTS = [
+export const PRESET_PROMPTS = [
   {
-    title: 'Standard Supply Chain & Freight',
-    category: 'Supply Chain',
+    title: 'CA Firm Client Tax & Statutory Audit Onboarding',
+    category: 'CA & Tax Firms',
+    badge: 'CA & Tax Firms',
+    description: 'Document collection and verification for corporate client tax filing, statutory audit, and regulatory compliance.',
     prompt:
-      'Collect GST certificate, PAN card, business registration certificate, bank proof, and insurance certificate. Insurance must have an expiry date. All documents require administrator approval. Send reminders 30 days before expiry.'
+      'Collect PAN card, Aadhaar card, Certificate of Incorporation, last 3 years ITR acknowledgement, audited balance sheet and P&L statement, 12 months bank statement, and GST registration certificate. Bank statement and ITR must be verified. Administrator approval required. Send reminders 30 days before annual filing expiry.'
   },
   {
-    title: 'IT & Cloud Services Vendor',
-    category: 'IT & Cloud Services',
+    title: 'Manufacturing & D2C Supplier Quality Onboarding',
+    category: 'Manufacturing, D2C & Retail Procurement',
+    badge: 'Manufacturing, D2C & Retail',
+    description: 'Supplier quality verification, factory audit certificates, and regulatory product compliance.',
     prompt:
-      'Collect Certificate of Incorporation, Executed Non-Disclosure Agreement, Bank Routing Details, and ISO 27001 / SOC 2 Security Report. ISO security certificate requires expiration tracking. Send reminders 60, 30, and 7 days prior to expiry.'
+      'Collect factory audit report, BIS / ISO 9001 quality certificate, product lab test report, GST certificate, MSME registration, bank proof, and product liability insurance. Liability insurance and ISO quality certificate must have expiry tracking. Send reminders 60, 30, and 7 days prior to expiry.'
   },
   {
-    title: 'Facilities & Contractor Services',
-    category: 'Facilities & Contractors',
+    title: 'Fleet Carrier & Transport Operator Verification',
+    category: 'Logistics, Fleet Operators & 3PL Brokers',
+    badge: 'Logistics, Fleet & 3PL',
+    description: 'Commercial driver KYC, vehicle fitness certification, transport permits, and transit liability insurance.',
     prompt:
-      'Collect trade license, worker compensation insurance, tax identification number, and bank authorization letter. Trade license and insurance must have expiry tracking. Administrator review mandatory.'
+      'Collect commercial vehicle RC, national transport permit, vehicle fitness certificate, commercial driver license, pollution under control (PUC) certificate, and comprehensive goods transit insurance. Vehicle fitness, national permit, PUC, and transit insurance require expiry tracking. Administrator review mandatory. Send reminders 30 and 7 days before expiry.'
+  },
+  {
+    title: 'Study Abroad & Student Visa Documentation Packet',
+    category: 'Study Abroad, Visa & Immigration Consultants',
+    badge: 'Study Abroad & Visa',
+    description: 'Applicant identity verification, language proficiency scorecards, academic records, and financial solvency proof.',
+    prompt:
+      'Collect passport front and back copy, IELTS or TOEFL English proficiency scorecard, official university transcripts, financial solvency bank certificate, statement of purpose, and police clearance certificate. Passport, language scorecard, and police clearance must have expiry tracking. Administrator approval required. Send reminders 60 and 30 days before expiry.'
+  },
+  {
+    title: 'Clinical Practitioner & Healthcare Staffing Credentialing',
+    category: 'Hospitals, Healthcare Staffing & HR Agencies',
+    badge: 'Hospitals & Healthcare Staffing',
+    description: 'Doctor and nurse licensing, clinical credentials, life-support certifications, and malpractice coverage.',
+    prompt:
+      'Collect State Medical Council registration, nursing or medical degree certificate, BLS / ACLS life support certification, background check report, immunization record, and medical malpractice insurance. Medical council registration, BLS/ACLS certificate, and malpractice insurance must have expiry tracking. Mandatory administrator verification. Send reminders 45, 30, and 7 days before expiry.'
   }
 ];
 
@@ -53,12 +76,11 @@ export default function NewWorkflowPage() {
   const router = useRouter();
 
   // Step 1: Prompt & Metadata
+  const [selectedPresetIndex, setSelectedPresetIndex] = useState<number>(0);
   const [prompt, setPrompt] = useState(PRESET_PROMPTS[0].prompt);
-  const [workflowName, setWorkflowName] = useState('Standard Supplier Compliance');
-  const [vendorCategory, setVendorCategory] = useState('Supply Chain');
-  const [description, setDescription] = useState(
-    'Automated onboarding and verification workflow for enterprise suppliers and vendors.'
-  );
+  const [workflowName, setWorkflowName] = useState(PRESET_PROMPTS[0].title);
+  const [vendorCategory, setVendorCategory] = useState(PRESET_PROMPTS[0].category);
+  const [description, setDescription] = useState(PRESET_PROMPTS[0].description);
 
   // States
   const [isGenerating, setIsGenerating] = useState(false);
@@ -213,32 +235,51 @@ export default function NewWorkflowPage() {
                 <Sparkles className="w-5 h-5 text-indigo-100" />
               </div>
               <div>
-                <h2 className="text-sm font-semibold text-slate-900">Step 1: Paste Onboarding Requirements</h2>
-                <p className="text-xs text-slate-700 font-medium">Provide requirements in plain English or select a curated enterprise preset</p>
+                <h2 className="text-sm font-semibold text-slate-900">Step 1: Document Collection Requirements</h2>
+                <p className="text-xs text-slate-700 font-medium">Select a curated industry preset or describe your custom document collection rules</p>
               </div>
-            </div>
-
-            {/* Presets dropdown / chips */}
-            <div className="hidden sm:flex items-center gap-1.5">
-              <span className="text-[11px] font-semibold text-slate-700 mr-1">Presets:</span>
-              {PRESET_PROMPTS.map((p, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => {
-                    setPrompt(p.prompt);
-                    setWorkflowName(p.title);
-                    setVendorCategory(p.category);
-                  }}
-                  className="px-2.5 py-1 text-[11px] font-medium text-slate-800 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 rounded-md border border-slate-300 transition-colors"
-                >
-                  {p.category}
-                </button>
-              ))}
             </div>
           </div>
 
-          <div className="p-6 space-y-4">
+          <div className="p-6 space-y-5">
+            {/* Industry Presets Selector */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                  Select Industry & Use-Case Preset:
+                </span>
+                <span className="text-[11px] font-medium text-slate-500">
+                  Click a preset to auto-load standard documents & rules
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {PRESET_PROMPTS.map((p, i) => {
+                  const isSelected = selectedPresetIndex === i;
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        setSelectedPresetIndex(i);
+                        setPrompt(p.prompt);
+                        setWorkflowName(p.title);
+                        setVendorCategory(p.category);
+                        setDescription(p.description);
+                        setSchema(null);
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs ring-2 ring-indigo-200'
+                          : 'bg-slate-100 hover:bg-indigo-50 text-slate-800 hover:text-indigo-700 border-slate-300'
+                      }`}
+                    >
+                      {p.badge}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-900 mb-1">Workflow Title</label>
@@ -250,7 +291,7 @@ export default function NewWorkflowPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-900 mb-1">Target Vendor Category</label>
+                <label className="block text-xs font-semibold text-slate-900 mb-1">Target Industry / Category</label>
                 <input
                   type="text"
                   value={vendorCategory}
@@ -268,7 +309,7 @@ export default function NewWorkflowPage() {
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 rows={4}
-                placeholder="Example: Collect GST certificate, PAN card, business registration, bank proof, and insurance certificate. Insurance must have expiry date. Admin approval required. 30 days reminder."
+                placeholder="Example: Collect PAN card, Aadhaar, ITR acknowledgement, audited balance sheet, 12 months bank statement, and GST certificate. Bank statement and ITR must be verified. Administrator approval required."
                 className="w-full text-xs p-3.5 rounded-xl border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 placeholder-slate-500 font-sans leading-relaxed font-medium"
               />
             </div>
@@ -471,6 +512,61 @@ export default function NewWorkflowPage() {
                       </button>
                     </div>
                   </div>
+
+                  {/* Dropdown Options Editor (if dropdown) */}
+                  {field.field_type === 'dropdown' && (
+                    <div className="pt-2 border-t border-slate-100 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wide">
+                          Dropdown Choices / Options
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const current = field.validation?.options || [];
+                            updateField(idx, {
+                              validation: {
+                                ...field.validation,
+                                options: [...current, `Option ${current.length + 1}`]
+                              }
+                            });
+                          }}
+                          className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add Choice</span>
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {(field.validation?.options?.length ? field.validation.options : ['Option 1', 'Option 2']).map((opt, optIdx) => (
+                          <div key={optIdx} className="flex items-center gap-1.5 bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1">
+                            <input
+                              type="text"
+                              value={opt}
+                              onChange={(e) => {
+                                const newOpts = [...(field.validation?.options || ['Option 1', 'Option 2'])];
+                                newOpts[optIdx] = e.target.value;
+                                updateField(idx, { validation: { ...field.validation, options: newOpts } });
+                              }}
+                              className="text-xs text-slate-900 bg-transparent outline-none w-28 font-medium"
+                              placeholder="Choice name..."
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newOpts = (field.validation?.options || ['Option 1', 'Option 2']).filter((_, i) => i !== optIdx);
+                                updateField(idx, { validation: { ...field.validation, options: newOpts } });
+                              }}
+                              className="text-slate-400 hover:text-rose-600 p-0.5 cursor-pointer"
+                              title="Delete option"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Help text & toggles */}
                   <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 text-xs">

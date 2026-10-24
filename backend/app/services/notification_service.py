@@ -1,4 +1,7 @@
 import logging
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from datetime import datetime, timezone
 from typing import Optional, List
 from sqlalchemy.orm import Session
@@ -12,19 +15,65 @@ class NotificationService:
     def __init__(self):
         self.resend_api_key = settings.RESEND_API_KEY
         self.sender_email = settings.SENDER_EMAIL
+        self.smtp_host = settings.SMTP_HOST
+        self.smtp_port = settings.SMTP_PORT
+        self.smtp_user = settings.SMTP_USER
+        self.smtp_password = settings.SMTP_PASSWORD
+        self.smtp_use_tls = settings.SMTP_USE_TLS
 
-    def _send_email_resend(self, to_email: str, subject: str, html_content: str) -> bool:
+    def _send_email_smtp(
+        self,
+        to_email: str,
+        subject: str,
+        html_content: str,
+        reply_to: Optional[str] = None,
+        from_name: Optional[str] = None
+    ) -> bool:
+        if not self.smtp_host or not self.smtp_user:
+            return False
+        try:
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            sender_addr = self.sender_email or self.smtp_user
+            msg["From"] = f"{from_name} <{sender_addr}>" if from_name else sender_addr
+            msg["To"] = to_email
+            if reply_to:
+                msg["Reply-To"] = reply_to
+            msg.attach(MIMEText(html_content, "html"))
+
+            with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=15) as server:
+                if self.smtp_use_tls:
+                    server.starttls()
+                if self.smtp_user and self.smtp_password:
+                    server.login(self.smtp_user, self.smtp_password)
+                server.sendmail(sender_addr, [to_email], msg.as_string())
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send email via SMTP: {e}")
+            raise e
+
+    def _send_email_resend(
+        self,
+        to_email: str,
+        subject: str,
+        html_content: str,
+        reply_to: Optional[str] = None,
+        from_name: Optional[str] = None
+    ) -> bool:
         if not self.resend_api_key:
             return False
         try:
             import resend
             resend.api_key = self.resend_api_key
+            sender = f"{from_name} <{self.sender_email}>" if from_name else self.sender_email
             params = {
-                "from": self.sender_email,
+                "from": sender,
                 "to": [to_email],
                 "subject": subject,
                 "html": html_content,
             }
+            if reply_to:
+                params["reply_to"] = reply_to
             resend.Emails.send(params)
             return True
         except Exception as e:
@@ -41,11 +90,14 @@ class NotificationService:
         recipient_email: str,
         subject: str,
         body_text: str,
-        idempotency_key: str
+        idempotency_key: str,
+        reply_to: Optional[str] = None,
+        sender_name: Optional[str] = None
     ) -> NotificationJob:
         """
         Idempotently sends and records a notification.
         If an idempotency key already exists, returns existing job to prevent duplicates.
+        Incorporates dashboard user identity into From header, Reply-To header, and email footer.
         """
         existing = db.query(NotificationJob).filter(
             NotificationJob.idempotency_key == idempotency_key
@@ -71,6 +123,20 @@ class NotificationService:
             db.rollback()
             return db.query(NotificationJob).filter(NotificationJob.idempotency_key == idempotency_key).first()
 
+        # Sender identity box
+        sender_card = ""
+        if reply_to or sender_name:
+            display_sender = sender_name or "Compliance Manager"
+            contact_line = f'Direct replies to this email will be delivered to: <a href="mailto:{reply_to}" style="color: #4f46e5; text-decoration: underline; font-weight: 600;">{reply_to}</a>' if reply_to else ''
+            sender_card = f"""
+            <div style="background-color: #f8fafc; border-left: 4px solid #6366f1; padding: 14px 18px; margin: 24px 0 16px 0; border-radius: 6px;">
+                <div style="font-size: 13px; font-weight: 700; color: #1e293b;">
+                    Sent by: {display_sender}
+                </div>
+                {f'<div style="font-size: 12px; color: #475569; margin-top: 4px;">{contact_line}</div>' if contact_line else ''}
+            </div>
+            """
+
         # Send email or log in dev mode
         html_content = f"""
         <div style="font-family: sans-serif; padding: 24px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px;">
@@ -78,7 +144,8 @@ class NotificationService:
                 <h2 style="color: #0f172a; margin: 0;">VendorFlow Notification</h2>
             </div>
             <h3 style="color: #334155; margin-top: 0;">{subject}</h3>
-            <p style="line-height: 1.6; font-size: 15px;">{body_text.replace('\n', '<br/>')}</p>
+            <p style="line-height: 1.6; font-size: 15px;">{body_text.replace(chr(10), '<br/>')}</p>
+            {sender_card}
             <div style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #f1f5f9; font-size: 12px; color: #64748b;">
                 Sent securely by VendorFlow Document Lifecycle Platform.
             </div>
@@ -86,14 +153,32 @@ class NotificationService:
         """
 
         try:
-            if self.resend_api_key:
-                self._send_email_resend(recipient_email, subject, html_content)
+            if self.smtp_host and self.smtp_user:
+                self._send_email_smtp(
+                    to_email=recipient_email,
+                    subject=subject,
+                    html_content=html_content,
+                    reply_to=reply_to,
+                    from_name=sender_name
+                )
+                job.status = "SENT"
+                job.sent_at = datetime.now(timezone.utc)
+            elif self.resend_api_key:
+                self._send_email_resend(
+                    to_email=recipient_email,
+                    subject=subject,
+                    html_content=html_content,
+                    reply_to=reply_to,
+                    from_name=sender_name
+                )
                 job.status = "SENT"
                 job.sent_at = datetime.now(timezone.utc)
             else:
                 # Dev Logger mode
                 logger.info(
-                    f"\n[DEV NOTIFICATION ENGINE] (Resend API key not set - Simulated Email)\n"
+                    f"\n[DEV NOTIFICATION ENGINE] (Simulated Email)\n"
+                    f"From: {sender_name or 'System'} <{self.sender_email}>\n"
+                    f"Reply-To: {reply_to or 'None'}\n"
                     f"To: {recipient_email}\n"
                     f"Subject: {subject}\n"
                     f"Idempotency Key: {idempotency_key}\n"
@@ -152,18 +237,21 @@ class NotificationService:
         db: Session,
         document: Document,
         vendor: Vendor,
-        reason: str
+        reason: str,
+        reply_to: Optional[str] = None,
+        sender_name: Optional[str] = None
     ) -> NotificationJob:
         timestamp_slug = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
         idempotency_key = f"resubmit_{document.id}_{timestamp_slug}"
 
         subject = f"Document Resubmission Requested: {document.document_type}"
+        signer = f"{sender_name}\n({reply_to})" if reply_to and sender_name else "VendorFlow Compliance Team"
         body = (
             f"Hello {vendor.name},\n\n"
             f"Your submission for '{document.document_type}' requires attention and resubmission.\n\n"
             f"Reason provided by reviewer:\n{reason}\n\n"
             f"Please update and re-upload the requested document at your earliest convenience.\n\n"
-            f"Thank you,\nVendorFlow Compliance Team"
+            f"Thank you,\n{signer}"
         )
 
         return self.record_and_send_notification(
@@ -175,7 +263,9 @@ class NotificationService:
             recipient_email=vendor.contact_email,
             subject=subject,
             body_text=body,
-            idempotency_key=idempotency_key
+            idempotency_key=idempotency_key,
+            reply_to=reply_to,
+            sender_name=sender_name
         )
 
 notification_service = NotificationService()

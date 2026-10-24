@@ -284,3 +284,154 @@ def test_document_rejection_and_dashboard_stats(client):
     expiry_data = expiry_res.json()
     assert "expiring_30d" in expiry_data or "expired" in expiry_data
 
+def test_workflow_deletion(client):
+    # Register test admin
+    signup_res = client.post("/api/v1/auth/signup", json={
+        "email": "wf_deleter@tenant-del.com",
+        "password": "Password123!",
+        "full_name": "Deleter Admin",
+        "organization_name": "Deleter Tenant"
+    })
+    assert signup_res.status_code == 201
+    token = signup_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Create a new draft workflow to test deletion
+    create_wf = client.post("/api/v1/workflows", json={
+        "name": "Temporary Deletable Workflow",
+        "vendor_category": "Temporary",
+        "description": "To be deleted immediately",
+        "schema_definition": {
+            "name": "Temporary Workflow",
+            "vendor_category": "Temporary",
+            "fields": [
+                {
+                    "id": "field_test",
+                    "label": "Test Field",
+                    "field_type": "short_text",
+                    "required": False
+                }
+            ],
+            "approval_required": True,
+            "reminder_rules": [30, 7]
+        },
+        "approval_required": True,
+        "reminder_rules": [30, 7]
+    }, headers=headers)
+    assert create_wf.status_code == 201
+    wf_id = create_wf.json()["id"]
+
+    # Delete the workflow
+    del_res = client.delete(f"/api/v1/workflows/{wf_id}", headers=headers)
+    assert del_res.status_code == 200
+    assert del_res.json()["success"] is True
+
+    # Verify workflow is gone
+    get_res = client.get(f"/api/v1/workflows/{wf_id}", headers=headers)
+    assert get_res.status_code == 404
+
+def test_workflow_edit_draft_and_published_versioning(client):
+    # Register test admin
+    signup_res = client.post("/api/v1/auth/signup", json={
+        "email": "editor@versioncorp.com",
+        "password": "Password123!",
+        "full_name": "Editor Admin",
+        "organization_name": "Version Corp"
+    })
+    assert signup_res.status_code == 201
+    token = signup_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 1. Create a DRAFT workflow (v1)
+    create_wf = client.post("/api/v1/workflows", json={
+        "name": "Versioned Workflow",
+        "vendor_category": "Logistics",
+        "description": "Initial draft",
+        "schema_definition": {
+            "name": "Versioned Workflow",
+            "vendor_category": "Logistics",
+            "fields": [
+                {
+                    "id": "field_initial",
+                    "label": "Initial Certificate",
+                    "field_type": "file_upload",
+                    "required": True,
+                    "track_expiry": False
+                }
+            ],
+            "approval_required": True,
+            "reminder_rules": [30, 7]
+        },
+        "approval_required": True,
+        "reminder_rules": [30, 7]
+    }, headers=headers)
+    assert create_wf.status_code == 201
+    wf_data = create_wf.json()
+    wf_id = wf_data["id"]
+    assert wf_data["status"] == "DRAFT"
+    assert wf_data["current_version_number"] == 1
+
+    # 2. Edit the DRAFT workflow in-place (should stay v1)
+    patch_draft = client.patch(f"/api/v1/workflows/{wf_id}", json={
+        "name": "Versioned Workflow (Draft Edited)",
+        "schema_definition": {
+            "name": "Versioned Workflow (Draft Edited)",
+            "vendor_category": "Logistics",
+            "fields": [
+                {
+                    "id": "field_initial",
+                    "label": "Initial Certificate (Updated)",
+                    "field_type": "file_upload",
+                    "required": True,
+                    "track_expiry": True
+                }
+            ],
+            "approval_required": True,
+            "reminder_rules": [30, 7, 1]
+        }
+    }, headers=headers)
+    assert patch_draft.status_code == 200
+    updated_draft = patch_draft.json()
+    assert updated_draft["name"] == "Versioned Workflow (Draft Edited)"
+    assert updated_draft["current_version_number"] == 1  # In-place update for DRAFT!
+
+    # 3. Publish the workflow
+    pub_res = client.post(f"/api/v1/workflows/{wf_id}/publish", headers=headers)
+    assert pub_res.status_code == 200
+    pub_data = pub_res.json()
+    assert pub_data["status"] == "PUBLISHED"
+    assert pub_data["current_version_number"] == 1
+
+    # 4. Edit the PUBLISHED workflow (should auto-increment to v2!)
+    patch_pub = client.patch(f"/api/v1/workflows/{wf_id}", json={
+        "name": "Versioned Workflow V2",
+        "schema_definition": {
+            "name": "Versioned Workflow V2",
+            "vendor_category": "Logistics",
+            "fields": [
+                {
+                    "id": "field_initial",
+                    "label": "Initial Certificate",
+                    "field_type": "file_upload",
+                    "required": True,
+                    "track_expiry": True
+                },
+                {
+                    "id": "field_tax_id",
+                    "label": "New Tax ID Field",
+                    "field_type": "short_text",
+                    "required": True,
+                    "track_expiry": False
+                }
+            ],
+            "approval_required": True,
+            "reminder_rules": [30, 7, 1]
+        }
+    }, headers=headers)
+    assert patch_pub.status_code == 200
+    v2_data = patch_pub.json()
+    assert v2_data["current_version_number"] == 2  # Incremented to v2!
+    assert len(v2_data["schema_definition"]["fields"]) == 2
+
+
+

@@ -24,6 +24,12 @@ export const InvitationModal: React.FC<InvitationModalProps> = ({
   const [errorMsg, setErrorMsg] = useState('');
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [sessionUser, setSessionUser] = useState<any>(null);
+
+  React.useEffect(() => {
+    const session = api.getCurrentSession();
+    if (session.user) setSessionUser(session.user);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,6 +123,25 @@ export const InvitationModal: React.FC<InvitationModalProps> = ({
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
+              {sessionUser && (
+                <div className="p-3 bg-indigo-50/70 border border-indigo-200/80 rounded-xl flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                      {sessionUser.full_name?.charAt(0) || 'U'}
+                    </div>
+                    <div>
+                      <div className="font-semibold text-slate-900 flex items-center gap-1.5">
+                        <span>Sending as:</span>
+                        <span className="text-indigo-700 font-bold">{sessionUser.full_name || 'Administrator'}</span>
+                      </div>
+                      <div className="text-[11px] text-slate-600 font-medium">
+                        Vendor replies will route directly to <span className="font-mono text-slate-900 font-semibold">{sessionUser.email}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-semibold text-slate-900 mb-1">
                   Vendor Representative Email <span className="text-rose-500">*</span>

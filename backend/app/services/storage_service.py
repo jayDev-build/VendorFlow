@@ -85,6 +85,17 @@ class StorageService:
             raise HTTPException(status_code=404, detail="Document file not found in storage")
         return full_path
 
+    def delete_file(self, storage_path: str) -> bool:
+        """Safely delete file from storage if it exists."""
+        try:
+            full_path = self.get_file_path(storage_path)
+            if os.path.exists(full_path):
+                os.remove(full_path)
+                return True
+        except Exception:
+            pass
+        return False
+
     def generate_signed_download_url(self, document_id: str, organization_id: str, expires_in_seconds: int = 3600) -> str:
         """
         Generates a short-lived tokenized URL to download or preview private documents.

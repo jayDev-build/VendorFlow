@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Bell, Search, ShieldCheck, ExternalLink } from 'lucide-react';
+import { Bell, Search, ShieldCheck, ExternalLink, Sparkles } from 'lucide-react';
 
 interface TopNavProps {
   title?: string;
@@ -39,15 +39,14 @@ export const TopNav: React.FC<TopNavProps> = ({ title, subtitle, actions }) => {
       <div className="flex items-center gap-3">
         {actions}
         
-        {/* Sample portal link for testing convenience */}
+        {/* Request Demo link - takes directly to the workflow page where forms are created */}
         <Link
-          href="/vendor/onboard/demo-invitation-token-beacon-2026"
-          target="_blank"
-          className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-300"
-          title="Open demo vendor onboarding link"
+          href="/workflows/new"
+          className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors border border-indigo-200 shadow-2xs"
+          title="Create onboarding workflow & form schema"
         >
-          <ExternalLink className="w-3.5 h-3.5 text-slate-700" />
-          <span>Vendor Portal Demo</span>
+          <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+          <span>Request Demo</span>
         </Link>
       </div>
     </header>

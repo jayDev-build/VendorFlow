@@ -18,12 +18,18 @@ import {
   FileCheck,
   RefreshCw,
   Building2,
-  ShieldCheck
+  ShieldCheck,
+  Trash2,
+  Upload,
+  UserPlus,
+  X
 } from 'lucide-react';
 import { TopNav } from '@/components/TopNav';
 import { StatusBadge } from '@/components/StatusBadge';
+import { UploadDocumentModal } from '@/components/UploadDocumentModal';
+import { InvitationModal } from '@/components/InvitationModal';
 import { api } from '@/lib/api';
-import { DashboardStats, VendorListItem } from '@/lib/types';
+import { DashboardStats, VendorListItem, Workflow } from '@/lib/types';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -32,10 +38,70 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Modals & Actions
+  const [showUploadDocModal, setShowUploadDocModal] = useState(false);
+  const [selectedVendorForUpload, setSelectedVendorForUpload] = useState<string | undefined>(undefined);
+  const [activeWorkflowForInvite, setActiveWorkflowForInvite] = useState<{ id: string; name: string } | null>(null);
+  const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [showWorkflowPicker, setShowWorkflowPicker] = useState(false);
+
   // Filters
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
+  const [deletingVendorId, setDeletingVendorId] = useState<string | null>(null);
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
+
+  const handleInviteClick = async () => {
+    try {
+      const wfList = await api.listWorkflows();
+      const published = wfList.filter((w) => w.status === 'PUBLISHED');
+      if (published.length === 0) {
+        router.push('/workflows/new');
+      } else if (published.length === 1) {
+        setActiveWorkflowForInvite({ id: published[0].id, name: published[0].name });
+      } else {
+        setWorkflows(published);
+        setShowWorkflowPicker(true);
+      }
+    } catch (err: any) {
+      router.push('/workflows');
+    }
+  };
+
+  const handleDeleteVendor = async (vendorId: string, vendorName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm(`Are you sure you want to permanently delete vendor "${vendorName}" and all associated compliance records?`)) {
+      return;
+    }
+
+    try {
+      setDeletingVendorId(vendorId);
+      await api.deleteVendor(vendorId);
+      fetchData();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to delete vendor');
+    } finally {
+      setDeletingVendorId(null);
+    }
+  };
+
+  const handleDeleteDocument = async (docId: string, docName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm(`Are you sure you want to permanently delete document "${docName}"?`)) {
+      return;
+    }
+
+    try {
+      setDeletingDocId(docId);
+      await api.deleteDocument(docId);
+      fetchData();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to delete document');
+    } finally {
+      setDeletingDocId(null);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -78,14 +144,39 @@ export default function DashboardPage() {
         title="Compliance & Onboarding Overview"
         subtitle="Real-time vendor onboarding pipeline, document verifications, and expiry alerts"
         actions={
-          <button
-            onClick={fetchData}
-            disabled={loading}
-            className="p-2 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition-colors"
-            title="Refresh dashboard metrics"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchData}
+              disabled={loading}
+              className="p-2 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              title="Refresh dashboard metrics"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleInviteClick}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-800 bg-white hover:bg-slate-50 rounded-lg transition-all border border-slate-300 shadow-2xs hover:shadow-xs cursor-pointer"
+              title="Invite vendor to complete digital onboarding workflow"
+            >
+              <UserPlus className="w-3.5 h-3.5 text-slate-600" />
+              <span>Invite Vendor</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedVendorForUpload(undefined);
+                setShowUploadDocModal(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-all shadow-xs hover:shadow cursor-pointer active:scale-[0.98]"
+              title="Upload document directly on behalf of a vendor"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>+ Upload Document</span>
+            </button>
+          </div>
         }
       />
 
@@ -234,7 +325,7 @@ export default function DashboardPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       <StatusBadge status={item.status} size="sm" />
                       <Link
                         href={`/documents?doc=${item.id}`}
@@ -242,6 +333,15 @@ export default function DashboardPage() {
                       >
                         Review
                       </Link>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteDocument(item.id, item.document_type, e)}
+                        disabled={deletingDocId === item.id}
+                        className="p-1.5 text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors cursor-pointer"
+                        title={`Delete ${item.document_type}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 ))
@@ -407,12 +507,36 @@ export default function DashboardPage() {
                         {new Date(vendor.last_updated).toLocaleDateString()}
                       </td>
                       <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                        <Link
-                          href={`/vendors/${vendor.id}`}
-                          className="px-2.5 py-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded transition-colors"
-                        >
-                          Details →
-                        </Link>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedVendorForUpload(vendor.id);
+                              setShowUploadDocModal(true);
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:text-indigo-600 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors shadow-2xs cursor-pointer"
+                            title={`Upload compliance document for ${vendor.name}`}
+                          >
+                            <Upload className="w-3.5 h-3.5 text-slate-500" />
+                            <span>Upload</span>
+                          </button>
+                          <Link
+                            href={`/vendors/${vendor.id}`}
+                            className="px-2.5 py-1 text-xs font-semibold text-indigo-700 hover:text-indigo-900 hover:bg-indigo-50 border border-indigo-200 rounded-lg transition-colors shadow-2xs"
+                          >
+                            Details →
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteVendor(vendor.id, vendor.name, e)}
+                            disabled={deletingVendorId === vendor.id}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 border border-rose-300 rounded-lg transition-colors cursor-pointer shadow-2xs disabled:opacity-50"
+                            title={`Delete ${vendor.name}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                            <span>Delete</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -422,6 +546,69 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
+
+      {/* Upload Document Modal */}
+      {showUploadDocModal && (
+        <UploadDocumentModal
+          initialVendorId={selectedVendorForUpload}
+          onClose={() => {
+            setShowUploadDocModal(false);
+            setSelectedVendorForUpload(undefined);
+          }}
+          onSuccess={() => fetchData()}
+        />
+      )}
+
+      {/* Workflow Selection Modal (when multiple published workflows exist) */}
+      {showWorkflowPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Select Onboarding Workflow</h3>
+                <p className="text-[11px] text-slate-500 font-medium">Choose a published template to send to the vendor</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowWorkflowPicker(false)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-2 max-h-60 overflow-y-auto">
+              {workflows.map((wf) => (
+                <button
+                  key={wf.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveWorkflowForInvite({ id: wf.id, name: wf.name });
+                    setShowWorkflowPicker(false);
+                  }}
+                  className="w-full text-left p-3 rounded-xl border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/50 transition-all cursor-pointer group"
+                >
+                  <div className="text-xs font-bold text-slate-900 group-hover:text-indigo-900">{wf.name}</div>
+                  <div className="text-[11px] text-slate-500 font-medium mt-0.5 flex items-center gap-2">
+                    <span>{wf.vendor_category}</span>
+                    <span>•</span>
+                    <span>v{wf.current_version_number}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Vendor Invitation Modal */}
+      {activeWorkflowForInvite && (
+        <InvitationModal
+          workflowId={activeWorkflowForInvite.id}
+          workflowName={activeWorkflowForInvite.name}
+          onClose={() => setActiveWorkflowForInvite(null)}
+          onSuccess={() => fetchData()}
+        />
+      )}
     </div>
   );
 }

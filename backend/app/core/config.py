@@ -36,17 +36,30 @@ class Settings(BaseSettings):
             return json.loads(v)
         return v
 
+    # Ollama Local LLM (e.g. gemma4:e4b)
+    OLLAMA_ENABLED: bool = True
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_MODEL: str = "gemma4:e4b"
+    OLLAMA_TIMEOUT_SECONDS: float = 240.0
+
     # OpenAI API
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o-mini"
 
-    # Google Gemini API
+    # Google Gemini Models (Primary: Gemini 3.5, Secondary: Gemini 3.5 Flash-Lite)
     GEMINI_API_KEY: str = "AQ.Ab8RN6KKbm_ZMIsfVTInueuG5AulIjW6Et-tfL5tKVLjwx2-XQ"
+    GEMINI_PRIMARY_MODEL: str = "gemini-3.5-flash"
+    GEMINI_SECONDARY_MODEL: str = "gemini-3.5-flash-lite"
     GEMINI_MODEL: str = "gemini-3.5-flash"
 
-    # Email & Resend
+    # Email Delivery (Resend API or Standard SMTP / Gmail / Outlook)
     RESEND_API_KEY: str = ""
     SENDER_EMAIL: str = "onboarding@vendorflow.io"
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_USE_TLS: bool = True
 
     # Supabase (Optional)
     SUPABASE_URL: str = ""

@@ -1,7 +1,9 @@
 import os
+import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
+from dateutil import parser as date_parser
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Response, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from app.core.database import get_db
@@ -71,6 +73,133 @@ def list_documents(
         })
     return results
 
+@router.post("/upload")
+async def upload_document(
+    vendor_id: str = Form(...),
+    document_type: str = Form(...),
+    file: UploadFile = File(...),
+    expiry_date: Optional[str] = Form(None),
+    status: Optional[str] = Form("UNDER_REVIEW"),
+    current_org: Organization = Depends(get_current_org),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Direct document upload endpoint for compliance administrators.
+    Allows admins to upload and verify certificates/agreements on behalf of vendors.
+    """
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+    verify_tenant_ownership(vendor.organization_id, current_org.id, "vendor")
+
+    # Validate status choice
+    doc_status = (status or "UNDER_REVIEW").upper().strip()
+    if doc_status not in ["APPROVED", "UNDER_REVIEW", "SUBMITTED"]:
+        doc_status = "UNDER_REVIEW"
+
+    # Save to secure private storage
+    storage_path, file_size, mime_type = await storage_service.save_file(
+        file=file,
+        organization_id=current_org.id,
+        vendor_id=vendor.id
+    )
+
+    parsed_expiry = None
+    if expiry_date and expiry_date.strip():
+        try:
+            parsed_expiry = date_parser.parse(expiry_date.strip())
+            if parsed_expiry.tzinfo is None:
+                parsed_expiry = parsed_expiry.replace(tzinfo=timezone.utc)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid expiry date format. Use YYYY-MM-DD.")
+
+    # Find active onboarding if any
+    onboarding = (
+        db.query(VendorOnboarding)
+        .filter(VendorOnboarding.vendor_id == vendor.id)
+        .order_by(VendorOnboarding.created_at.desc())
+        .first()
+    )
+    onboarding_id = onboarding.id if onboarding else None
+
+    # Generate unique field ID
+    clean_type = "".join(c if c.isalnum() else "_" for c in document_type.lower()).strip("_")
+    field_id = f"doc_{clean_type}_{uuid.uuid4().hex[:6]}"
+
+    doc = Document(
+        organization_id=current_org.id,
+        vendor_id=vendor.id,
+        onboarding_id=onboarding_id,
+        field_id=field_id,
+        document_type=document_type.strip(),
+        original_filename=file.filename or "uploaded_document",
+        file_size=file_size,
+        mime_type=mime_type,
+        storage_path=storage_path,
+        expiry_date=parsed_expiry,
+        status=doc_status,
+        submitted_at=datetime.now(timezone.utc)
+    )
+    db.add(doc)
+    db.flush()
+
+    # If status is APPROVED, record approval review
+    if doc_status == "APPROVED":
+        review = DocumentReview(
+            document_id=doc.id,
+            reviewer_user_id=current_user.id,
+            previous_status="SUBMITTED",
+            new_status="APPROVED",
+            reason=f"Uploaded and approved directly by {current_user.full_name}."
+        )
+        db.add(review)
+
+        # Check if all required docs for this vendor are approved
+        vendor_docs = vendor.documents
+        if len(vendor_docs) > 0 and all(d.status == "APPROVED" for d in vendor_docs):
+            vendor.status = "APPROVED"
+            if onboarding:
+                onboarding.status = "APPROVED"
+                onboarding.approved_at = datetime.now(timezone.utc)
+
+    audit = AuditLog(
+        organization_id=current_org.id,
+        user_id=current_user.id,
+        action="DOCUMENT_UPLOADED",
+        entity_type="document",
+        entity_id=doc.id,
+        details={
+            "vendor_id": vendor.id,
+            "vendor_name": vendor.name,
+            "document_type": doc.document_type,
+            "status": doc.status,
+            "uploaded_by": current_user.email
+        }
+    )
+    db.add(audit)
+    db.commit()
+    db.refresh(doc)
+
+    signed_url = storage_service.generate_signed_download_url(doc.id, current_org.id)
+
+    return {
+        "success": True,
+        "document": {
+            "id": doc.id,
+            "vendor_id": doc.vendor_id,
+            "vendor_name": vendor.name,
+            "document_type": doc.document_type,
+            "original_filename": doc.original_filename,
+            "file_size": doc.file_size,
+            "mime_type": doc.mime_type,
+            "expiry_date": doc.expiry_date.isoformat() if doc.expiry_date else None,
+            "status": doc.status,
+            "submitted_at": doc.submitted_at.isoformat() if doc.submitted_at else None,
+            "download_url": signed_url
+        }
+    }
+
 @router.get("/{document_id}", response_model=DocumentDetailResponse)
 def get_document_details(
     document_id: str,
@@ -120,10 +249,11 @@ def get_document_details(
 def download_document(
     document_id: str,
     token: Optional[str] = Query(None),
+    inline: bool = Query(True),
     db: Session = Depends(get_db)
 ):
     """
-    Secure authorized private document download endpoint.
+    Secure authorized private document download & preview endpoint.
     Verifies signed download token to prevent unauthenticated access.
     """
     if not token:
@@ -139,12 +269,14 @@ def download_document(
 
     file_path = storage_service.get_file_path(doc.storage_path)
 
-    # Use inline or attachment based on mime
+    # Use inline or attachment based on parameter
     media_type = doc.mime_type or "application/octet-stream"
+    disposition = "inline" if inline else "attachment"
     return FileResponse(
         path=file_path,
         media_type=media_type,
-        filename=doc.original_filename
+        filename=doc.original_filename if not inline else None,
+        content_disposition_type=disposition
     )
 
 @router.post("/{document_id}/approve")
@@ -247,9 +379,9 @@ def reject_document(
     body = (
         f"Hello {vendor.name},\n\n"
         f"Your submitted document '{doc.document_type}' has been rejected by compliance review.\n\n"
-        f"Reason:\n{action.reason}\n\n"
-        f"Please contact your administrator or submit a valid replacement file.\n\n"
-        f"Thank you,\n{current_org.name} Compliance Team"
+        f"Reason provided by reviewer:\n{action.reason}\n\n"
+        f"If you have questions, reply directly to this email to reach {current_user.full_name}.\n\n"
+        f"Thank you,\n{current_user.full_name} ({current_user.email})\n{current_org.name} Compliance Team"
     )
     notification_service.record_and_send_notification(
         db=db,
@@ -260,7 +392,9 @@ def reject_document(
         recipient_email=vendor.contact_email,
         subject=subject,
         body_text=body,
-        idempotency_key=f"reject_{doc.id}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+        idempotency_key=f"reject_{doc.id}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
+        reply_to=current_user.email,
+        sender_name=f"{current_user.full_name} via {current_org.name}"
     )
 
     return {"success": True, "document_id": doc.id, "status": "REJECTED", "reason": action.reason}
@@ -311,7 +445,46 @@ def request_resubmission(
         db=db,
         document=doc,
         vendor=vendor,
-        reason=action.reason.strip()
+        reason=action.reason.strip(),
+        reply_to=current_user.email,
+        sender_name=f"{current_user.full_name} via {current_org.name}"
     )
 
     return {"success": True, "document_id": doc.id, "status": "RESUBMISSION_REQUESTED"}
+
+@router.delete("/{document_id}")
+def delete_document(
+    document_id: str,
+    current_org: Organization = Depends(get_current_org),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    verify_tenant_ownership(doc.organization_id, current_org.id, "document")
+
+    doc_type = doc.document_type
+    vendor_id = doc.vendor_id
+
+    # Delete storage file
+    if doc.storage_path:
+        storage_service.delete_file(doc.storage_path)
+
+    # Delete db record
+    db.delete(doc)
+    db.commit()
+
+    # Audit log
+    audit = AuditLog(
+        organization_id=current_org.id,
+        user_id=current_user.id,
+        action="DOCUMENT_DELETED",
+        entity_type="document",
+        entity_id=document_id,
+        details={"vendor_id": vendor_id, "document_type": doc_type}
+    )
+    db.add(audit)
+    db.commit()
+
+    return {"success": True, "message": f"Document '{doc_type}' deleted successfully", "document_id": document_id}

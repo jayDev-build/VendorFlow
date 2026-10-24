@@ -1,5 +1,5 @@
 from typing import List, Optional, Any, Dict
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 class FieldValidationRules(BaseModel):
     min_length: Optional[int] = None
@@ -18,10 +18,10 @@ class WorkflowFieldDefinition(BaseModel):
     help_text: Optional[str] = None
     document_category: Optional[str] = Field(None, description="Category group e.g. Tax, Compliance, Banking")
     track_expiry: bool = Field(False, description="Whether this document has an expiration date requiring tracking")
-    allowed_file_types: List[str] = Field(
+    allowed_file_types: Optional[List[str]] = Field(
         default_factory=lambda: ["application/pdf", "image/png", "image/jpeg"]
     )
-    max_file_size_mb: int = Field(default=10)
+    max_file_size_mb: Optional[int] = Field(default=10)
     validation: Optional[FieldValidationRules] = None
 
 class WorkflowSchemaDefinition(BaseModel):
@@ -30,10 +30,24 @@ class WorkflowSchemaDefinition(BaseModel):
     description: Optional[str] = None
     fields: List[WorkflowFieldDefinition] = Field(default_factory=list)
     approval_required: bool = Field(True, description="Whether administrator approval is required for submissions")
-    reminder_rules: List[int] = Field(default_factory=lambda: [30, 7, 1], description="Days before expiry to dispatch reminders")
-    generated_questions: List[str] = Field(default_factory=list, description="Clarifications requested from manager")
-    assumptions: List[str] = Field(default_factory=list, description="Assumptions made by generator")
-    warnings: List[str] = Field(default_factory=list, description="Warnings or compliance alerts")
+    reminder_rules: Optional[List[int]] = Field(default_factory=lambda: [30, 7, 1], description="Days before expiry to dispatch reminders")
+    generated_questions: Optional[List[str]] = Field(default_factory=list, description="Clarifications requested from manager")
+    assumptions: Optional[List[str]] = Field(default_factory=list, description="Assumptions made by generator")
+    warnings: Optional[List[str]] = Field(default_factory=list, description="Warnings or compliance alerts")
+
+    @field_validator("reminder_rules", mode="before")
+    @classmethod
+    def normalize_reminder_rules(cls, v):
+        if not v:
+            return [30, 7, 1]
+        return v
+
+    @field_validator("generated_questions", "assumptions", "warnings", mode="before")
+    @classmethod
+    def normalize_optional_lists(cls, v):
+        if v is None:
+            return []
+        return v
 
 class WorkflowGenerateRequest(BaseModel):
     prompt: str = Field(..., min_length=5, description="Plain-English vendor onboarding requirements")
