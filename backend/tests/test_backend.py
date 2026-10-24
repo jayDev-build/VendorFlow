@@ -756,6 +756,264 @@ def test_resubmission_preserves_prior_approved_documents(client):
     assert appr_b.json()["vendor_status"] == "APPROVED"
 
 
+def test_organization_slug_update(client):
+    # Register Org 1
+    signup1 = client.post("/api/v1/auth/signup", json={
+        "email": "org1_admin@example.com",
+        "password": "Password123!",
+        "full_name": "Org 1 Admin",
+        "organization_name": "Org 1 Alpha"
+    })
+    assert signup1.status_code == 201
+    headers1 = {"Authorization": f"Bearer {signup1.json()['access_token']}"}
+
+    # Register Org 2
+    signup2 = client.post("/api/v1/auth/signup", json={
+        "email": "org2_admin@example.com",
+        "password": "Password123!",
+        "full_name": "Org 2 Admin",
+        "organization_name": "Org 2 Beta"
+    })
+    assert signup2.status_code == 201
+    headers2 = {"Authorization": f"Bearer {signup2.json()['access_token']}"}
+
+    # Update Org 1 slug cleanly
+    update_res = client.patch("/api/v1/auth/organization", json={
+        "name": "Org 1 Renamed",
+        "slug": "custom-alpha-tenant"
+    }, headers=headers1)
+    assert update_res.status_code == 200
+    updated_data = update_res.json()
+    assert updated_data["slug"] == "custom-alpha-tenant"
+    assert updated_data["name"] == "Org 1 Renamed"
+
+    # Attempt to update Org 2 to the same slug should fail with 400
+    conflict_res = client.patch("/api/v1/auth/organization", json={
+        "slug": "custom-alpha-tenant"
+    }, headers=headers2)
+    assert conflict_res.status_code == 400
+    assert "already taken" in conflict_res.json()["detail"].lower()
+
+    # Updating with spaces/special characters should automatically slugify
+    slugify_res = client.patch("/api/v1/auth/organization", json={
+        "slug": "Beta Logistics Hub!"
+    }, headers=headers2)
+    assert slugify_res.status_code == 200
+    assert slugify_res.json()["slug"] == "beta-logistics-hub"
+
+
+def test_same_vendor_new_invitations_are_fresh(client):
+    # Signup a fresh Admin
+    signup_res = client.post("/api/v1/auth/signup", json={
+        "email": "fresh_admin@tenant-fresh.com",
+        "password": "Password123!",
+        "full_name": "Fresh Admin",
+        "organization_name": "Fresh Forms Corp"
+    })
+    assert signup_res.status_code == 201
+    token = signup_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 1. Create Workflow 1
+    wf1_res = client.post("/api/v1/workflows", json={
+        "name": "General Vendor Intake",
+        "vendor_category": "General",
+        "description": "General vendor intake form",
+        "schema_definition": {
+            "name": "General Vendor Intake",
+            "vendor_category": "General",
+            "approval_required": True,
+            "reminder_rules": [30],
+            "fields": [
+                {"id": "field_tax_id", "label": "Tax ID", "field_type": "text", "required": False}
+            ]
+        },
+        "approval_required": True,
+        "reminder_rules": [30]
+    }, headers=headers)
+    assert wf1_res.status_code == 201
+    wf1_id = wf1_res.json()["id"]
+    client.post(f"/api/v1/workflows/{wf1_id}/publish", headers=headers)
+
+    # 2. Create Workflow 2
+    wf2_res = client.post("/api/v1/workflows", json={
+        "name": "Security Compliance Check",
+        "vendor_category": "IT",
+        "description": "Security compliance form",
+        "schema_definition": {
+            "name": "Security Compliance Check",
+            "vendor_category": "IT",
+            "approval_required": True,
+            "reminder_rules": [15],
+            "fields": [
+                {"id": "field_badge_no", "label": "Badge Number", "field_type": "text", "required": False}
+            ]
+        },
+        "approval_required": True,
+        "reminder_rules": [15]
+    }, headers=headers)
+    assert wf2_res.status_code == 201
+    wf2_id = wf2_res.json()["id"]
+    client.post(f"/api/v1/workflows/{wf2_id}/publish", headers=headers)
+
+    vendor_email = "samuel@multivendor.com"
+
+    # 3. Invite vendor to Workflow 1
+    inv1_res = client.post(f"/api/v1/workflows/{wf1_id}/invitations", json={
+        "email": vendor_email,
+        "vendor_name": "Samuel Enterprise"
+    }, headers=headers)
+    assert inv1_res.status_code == 200
+    token1 = inv1_res.json()["invitation_url"].split("/vendor/onboard/")[-1]
+
+    # Vendor submits Workflow 1
+    sub1_res = client.post(f"/api/v1/public/invitations/{token1}/submit", json={
+        "form_responses": {"field_tax_id": "TAX-998877"},
+        "document_expiries": {}
+    })
+    assert sub1_res.status_code == 200
+
+    # Visiting token1 now shows is_submitted = True (Google Forms Edit Response screen)
+    view1 = client.get(f"/api/v1/public/invitations/{token1}").json()
+    assert view1["is_submitted"] is True
+    assert view1["existing_responses"]["field_tax_id"] == "TAX-998877"
+
+    # 4. Now invite the SAME vendor to Workflow 2
+    inv2_res = client.post(f"/api/v1/workflows/{wf2_id}/invitations", json={
+        "email": vendor_email,
+        "vendor_name": "Samuel Enterprise"
+    }, headers=headers)
+    assert inv2_res.status_code == 200
+    token2 = inv2_res.json()["invitation_url"].split("/vendor/onboard/")[-1]
+
+    # Visiting token2 MUST be a fresh form! Not an edit response screen!
+    view2 = client.get(f"/api/v1/public/invitations/{token2}").json()
+    assert view2["is_submitted"] is False
+    assert view2["existing_responses"] == {}
+    assert view2["existing_documents"] == []
+
+    # 5. Now send a new invitation to the SAME vendor for Workflow 1 (renewal)
+    inv3_res = client.post(f"/api/v1/workflows/{wf1_id}/invitations", json={
+        "email": vendor_email,
+        "vendor_name": "Samuel Enterprise"
+    }, headers=headers)
+    assert inv3_res.status_code == 200
+    token3 = inv3_res.json()["invitation_url"].split("/vendor/onboard/")[-1]
+
+    # Visiting token3 MUST also be fresh!
+    view3 = client.get(f"/api/v1/public/invitations/{token3}").json()
+    assert view3["is_submitted"] is False
+    assert view3["existing_responses"] == {}
+    assert view3["existing_documents"] == []
+
+def test_workflow_responses_endpoint_and_vendor_submissions(client):
+    # 1. Signup and Auth
+    auth_res = client.post("/api/v1/auth/signup", json={
+        "email": "lead@workflow-responses.com",
+        "password": "Password123!",
+        "full_name": "Response Lead",
+        "organization_name": "Responses Corp"
+    }).json()
+    headers = {"Authorization": f"Bearer {auth_res['access_token']}"}
+
+    # 2. Create Workflow
+    schema = {
+        "name": "Vendor Audit Workflow",
+        "vendor_category": "Logistics",
+        "fields": [
+            {"id": "field_company", "label": "Company Name", "field_type": "short_text", "required": True},
+            {"id": "field_tax_id", "label": "Tax Registration ID", "field_type": "short_text", "required": True},
+            {"id": "doc_cert", "label": "Registration Certificate", "field_type": "file_upload", "document_category": "Legal", "required": True}
+        ],
+        "approval_required": True,
+        "reminder_rules": [7]
+    }
+    create_wf_res = client.post("/api/v1/workflows", json={
+        "name": "Vendor Audit Workflow",
+        "vendor_category": "Logistics",
+        "description": "Compliance flow with responses table",
+        "schema_definition": schema,
+        "approval_required": True,
+        "reminder_rules": [7]
+    }, headers=headers)
+    assert create_wf_res.status_code == 201
+    wf = create_wf_res.json()
+    wf_id = wf["id"]
+
+    # Publish
+    client.post(f"/api/v1/workflows/{wf_id}/publish", headers=headers)
+
+    # 3. Initially, responses count is 0
+    wf_list_before = client.get("/api/v1/workflows", headers=headers).json()
+    target_wf = next(w for w in wf_list_before if w["id"] == wf_id)
+    assert target_wf["responses_count"] == 0
+
+    empty_resp = client.get(f"/api/v1/workflows/{wf_id}/responses", headers=headers).json()
+    assert empty_resp["stats"]["total_responses"] == 0
+    assert len(empty_resp["responses"]) == 0
+
+    # 4. Invite Vendor and Submit Form + Document
+    inv = client.post(f"/api/v1/workflows/{wf_id}/invitations", json={
+        "email": "vendor@auditme.com",
+        "vendor_name": "Audit Ready Ltd"
+    }, headers=headers).json()
+    token = inv["invitation_url"].split("/vendor/onboard/")[-1]
+
+    # Submit Document
+    doc_res = client.post(
+        f"/api/v1/public/invitations/{token}/documents",
+        data={
+            "field_id": "doc_cert",
+            "document_type": "Registration Certificate"
+        },
+        files={"file": ("cert.pdf", b"%PDF-1.4 sample cert", "application/pdf")}
+    )
+    assert doc_res.status_code == 200
+
+    # Submit Form
+    sub_res = client.post(f"/api/v1/public/invitations/{token}/submit", json={
+        "form_responses": {
+            "field_company": "Audit Ready Ltd",
+            "field_tax_id": "TX-AUDIT-990"
+        }
+    })
+    assert sub_res.status_code == 200
+
+    # 5. Check Workflows List: responses_count is now 1
+    wf_list_after = client.get("/api/v1/workflows", headers=headers).json()
+    target_wf_after = next(w for w in wf_list_after if w["id"] == wf_id)
+    assert target_wf_after["responses_count"] == 1
+
+    # 6. Check Dedicated Responses Endpoint
+    resp_data = client.get(f"/api/v1/workflows/{wf_id}/responses", headers=headers).json()
+    assert resp_data["workflow"]["name"] == "Vendor Audit Workflow"
+    assert resp_data["stats"]["total_responses"] == 1
+    assert resp_data["stats"]["pending_review"] == 1
+    assert len(resp_data["responses"]) == 1
+
+    submission = resp_data["responses"][0]
+    assert submission["vendor_name"] == "Audit Ready Ltd"
+    assert submission["vendor_email"] == "vendor@auditme.com"
+    assert submission["form_responses"]["field_company"] == "Audit Ready Ltd"
+    assert submission["form_responses"]["field_tax_id"] == "TX-AUDIT-990"
+    assert len(submission["documents"]) == 1
+    assert submission["documents"][0]["original_filename"] == "cert.pdf"
+
+    # 7. Check Vendor Detail Page API includes submissions list for accordion
+    vendor_id = submission["vendor_id"]
+    vendor_data = client.get(f"/api/v1/vendors/{vendor_id}", headers=headers).json()
+    assert "submissions" in vendor_data
+    assert len(vendor_data["submissions"]) == 1
+    v_sub = vendor_data["submissions"][0]
+    assert v_sub["workflow_name"] == "Vendor Audit Workflow"
+    assert v_sub["form_responses"]["field_company"] == "Audit Ready Ltd"
+    assert len(v_sub["documents"]) == 1
+    assert v_sub["documents"][0]["original_filename"] == "cert.pdf"
+
+
+
+
+
 
 
 

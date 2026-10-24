@@ -7,6 +7,46 @@ class FieldValidationRules(BaseModel):
     pattern: Optional[str] = None
     options: Optional[List[str]] = Field(default_factory=list, description="Dropdown or checkbox choices")
 
+    @model_validator(mode="before")
+    @classmethod
+    def sanitize_rules(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        clean = {}
+        # Pattern: accept only valid non-empty string; if dict (schema echo), discard to None
+        pat = data.get("pattern")
+        if isinstance(pat, str) and pat.strip():
+            clean["pattern"] = pat.strip()
+        else:
+            clean["pattern"] = None
+
+        # Min Length: accept only int or digit string; if dict, discard to None
+        ml = data.get("min_length")
+        if isinstance(ml, int) and not isinstance(ml, bool):
+            clean["min_length"] = ml
+        elif isinstance(ml, str) and ml.isdigit():
+            clean["min_length"] = int(ml)
+        else:
+            clean["min_length"] = None
+
+        # Max Length: accept only int or digit string; if dict, discard to None
+        xl = data.get("max_length")
+        if isinstance(xl, int) and not isinstance(xl, bool):
+            clean["max_length"] = xl
+        elif isinstance(xl, str) and xl.isdigit():
+            clean["max_length"] = int(xl)
+        else:
+            clean["max_length"] = None
+
+        # Options: extract clean string options
+        opts = data.get("options")
+        if isinstance(opts, list):
+            clean["options"] = [str(o).strip() for o in opts if isinstance(o, (str, int, float)) and str(o).strip()]
+        else:
+            clean["options"] = []
+
+        return clean
+
 class WorkflowFieldDefinition(BaseModel):
     id: str = Field(..., description="Stable unique identifier e.g. field_gst_certificate")
     label: str = Field(..., description="Human-readable label")
@@ -127,8 +167,48 @@ class WorkflowResponse(BaseModel):
     reminder_rules: List[int] = [30, 7, 1]
     assumptions: List[str] = []
     warnings: List[str] = []
+    responses_count: int = 0
     created_at: Any
     updated_at: Any
+
+class WorkflowResponseDocument(BaseModel):
+    id: str
+    field_id: str
+    document_type: str
+    original_filename: str
+    file_size: int
+    mime_type: str
+    expiry_date: Optional[Any] = None
+    status: str
+    download_url: Optional[str] = None
+    review_reason: Optional[str] = None
+    has_replacement: bool = False
+    submitted_at: Optional[Any] = None
+
+class WorkflowResponseSubmission(BaseModel):
+    id: str
+    vendor_id: str
+    vendor_name: str
+    vendor_email: str
+    vendor_category: str
+    status: str
+    submitted_at: Optional[Any] = None
+    approved_at: Optional[Any] = None
+    created_at: Any
+    form_responses: Dict[str, Any] = {}
+    documents: List[WorkflowResponseDocument] = []
+    version_number: int = 1
+
+class WorkflowResponsesStats(BaseModel):
+    total_responses: int = 0
+    pending_review: int = 0
+    approved: int = 0
+    resubmission_requested: int = 0
+
+class WorkflowResponsesPayload(BaseModel):
+    workflow: Dict[str, Any]
+    stats: WorkflowResponsesStats
+    responses: List[WorkflowResponseSubmission]
 
 class CreateInvitationRequest(BaseModel):
     email: str

@@ -198,6 +198,54 @@ def get_vendor_details(
                 "schema_definition": wf_version.schema_definition
             }
 
+    # All submissions by this vendor across all workflows
+    all_onboardings = (
+        db.query(VendorOnboarding)
+        .filter(VendorOnboarding.vendor_id == vendor.id)
+        .order_by(VendorOnboarding.submitted_at.desc(), VendorOnboarding.created_at.desc())
+        .all()
+    )
+
+    submissions = []
+    for ob in all_onboardings:
+        wf_v = db.query(WorkflowVersion).filter(WorkflowVersion.id == ob.workflow_version_id).first()
+        wf_t = wf_v.template if wf_v else None
+
+        ob_docs = [d for d in vendor.documents if d.onboarding_id == ob.id]
+        doc_list = []
+        for d in ob_docs:
+            signed_url = storage_service.generate_signed_download_url(
+                document_id=d.id,
+                organization_id=current_org.id
+            )
+            doc_list.append({
+                "id": d.id,
+                "field_id": d.field_id,
+                "document_type": d.document_type,
+                "original_filename": d.original_filename,
+                "file_size": d.file_size,
+                "mime_type": d.mime_type,
+                "expiry_date": d.expiry_date.isoformat() if d.expiry_date else None,
+                "status": d.status,
+                "submitted_at": d.submitted_at.isoformat() if d.submitted_at else None,
+                "download_url": signed_url
+            })
+
+        submissions.append({
+            "id": ob.id,
+            "workflow_id": wf_t.id if wf_t else None,
+            "workflow_name": wf_t.name if wf_t else (wf_v.schema_definition.get("name") if wf_v else "Workflow"),
+            "workflow_category": wf_t.vendor_category if wf_t else "General",
+            "version_number": wf_v.version_number if wf_v else 1,
+            "status": ob.status,
+            "submitted_at": ob.submitted_at.isoformat() if ob.submitted_at else None,
+            "approved_at": ob.approved_at.isoformat() if ob.approved_at else None,
+            "created_at": ob.created_at.isoformat() if ob.created_at else None,
+            "form_responses": ob.form_responses or {},
+            "schema_definition": wf_v.schema_definition if wf_v else {},
+            "documents": doc_list
+        })
+
     # Recent activity logs for this vendor
     logs = (
         db.query(AuditLog)
@@ -233,6 +281,7 @@ def get_vendor_details(
         documents=docs_response,
         active_workflow=active_workflow,
         onboarding_data=onboarding_data,
+        submissions=submissions,
         recent_activity=recent_activity
     )
 

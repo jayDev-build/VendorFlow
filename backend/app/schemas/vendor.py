@@ -57,6 +57,7 @@ class VendorDetailResponse(BaseModel):
     documents: List[DocumentItemResponse] = []
     active_workflow: Optional[Dict[str, Any]] = None
     onboarding_data: Optional[Dict[str, Any]] = None
+    submissions: List[Dict[str, Any]] = []
     recent_activity: List[Dict[str, Any]] = []
 
 class PublicInvitationView(BaseModel):

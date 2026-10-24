@@ -28,6 +28,7 @@ export default function SettingsPage() {
 
   // Organization settings state
   const [orgName, setOrgName] = useState('');
+  const [orgSlug, setOrgSlug] = useState('');
   const [industry, setIndustry] = useState('');
   const [orgLoading, setOrgLoading] = useState(false);
   const [orgSuccessMsg, setOrgSuccessMsg] = useState('');
@@ -49,6 +50,7 @@ export default function SettingsPage() {
     if (session.org) {
       setOrg(session.org);
       setOrgName(session.org.name);
+      setOrgSlug(session.org.slug || '');
       setIndustry(session.org.business_profile?.industry || 'CA & Tax Firms');
     }
     if (session.user) {
@@ -66,12 +68,15 @@ export default function SettingsPage() {
       setOrgSuccessMsg('');
       const updated = await api.updateOrganization({
         name: orgName.trim(),
+        slug: orgSlug.trim().toLowerCase(),
         business_profile: {
           ...(org?.business_profile || {}),
           industry: industry.trim()
         }
       });
       setOrg(updated);
+      setOrgName(updated.name);
+      setOrgSlug(updated.slug);
       setOrgSuccessMsg('Organization settings updated successfully.');
     } catch (err: any) {
       setOrgErrorMsg(err.message || 'Failed to update organization settings');
@@ -374,13 +379,21 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-900 mb-1.5">Organization Slug (Tenant Scope)</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-900">Organization Slug (Tenant Scope)</label>
+                  <span className="text-[10px] text-slate-500 font-medium">Domain identifier</span>
+                </div>
                 <input
                   type="text"
-                  disabled
-                  value={org?.slug || 'formgate-enterprise'}
-                  className="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 bg-slate-100 text-slate-800 font-mono font-semibold"
+                  required
+                  value={orgSlug}
+                  onChange={(e) => setOrgSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
+                  placeholder="e.g. formgate-enterprise"
+                  className="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 font-mono font-semibold placeholder-slate-400"
                 />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Unique tenant slug used for workspace isolation. Allowed: lowercase letters, numbers, hyphens.
+                </p>
               </div>
 
               <div className="sm:col-span-2">

@@ -14,7 +14,8 @@ import {
   AlertTriangle,
   FileText,
   Trash2,
-  Pencil
+  Pencil,
+  FileSpreadsheet
 } from 'lucide-react';
 import { TopNav } from '@/components/TopNav';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -153,16 +154,20 @@ export default function WorkflowsPage() {
                       )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 text-[11px] text-slate-800">
+                    <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 text-[11px] text-slate-800">
                       <div>
-                        <span className="text-slate-700 font-semibold">Total Fields:</span>{' '}
+                        <span className="text-slate-700 font-semibold">Fields:</span>{' '}
                         <span className="font-bold text-slate-900">{fieldCount}</span>
                       </div>
                       <div>
                         <span className="text-slate-700 font-semibold">Documents:</span>{' '}
                         <span className="font-bold text-slate-900">{docCount}</span>
                       </div>
-                      <div className="col-span-2 flex items-center gap-1 text-slate-700 font-medium">
+                      <div>
+                        <span className="text-slate-700 font-semibold">Responses:</span>{' '}
+                        <span className={`font-bold ${(wf.responses_count || 0) > 0 ? 'text-indigo-600 font-extrabold' : 'text-slate-900'}`}>{wf.responses_count || 0}</span>
+                      </div>
+                      <div className="col-span-3 flex items-center gap-1 text-slate-700 font-medium">
                         <Clock className="w-3.5 h-3.5 text-slate-600" />
                         <span>Reminders: {wf.reminder_rules?.join(', ')}d before expiry</span>
                       </div>
@@ -198,11 +203,25 @@ export default function WorkflowsPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
+                      <Link
+                        href={`/workflows/${wf.id}/responses`}
+                        className="px-2.5 py-1.5 bg-slate-50 hover:bg-indigo-50 text-slate-800 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
+                        title={`View Responses for ${wf.name}`}
+                      >
+                        <FileSpreadsheet className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Responses</span>
+                        <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                          (wf.responses_count || 0) > 0 ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700'
+                        }`}>
+                          {wf.responses_count || 0}
+                        </span>
+                      </Link>
+
                       {wf.status === 'DRAFT' ? (
                         <button
                           type="button"
                           onClick={() => handlePublish(wf.id)}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-colors"
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                         >
                           Publish
                         </button>
@@ -210,10 +229,10 @@ export default function WorkflowsPage() {
                         <button
                           type="button"
                           onClick={() => setActiveWorkflowForInvite({ id: wf.id, name: wf.name })}
-                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
                         >
                           <Send className="w-3.5 h-3.5" />
-                          <span>Invite Vendor</span>
+                          <span>Invite</span>
                         </button>
                       )}
                     </div>

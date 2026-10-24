@@ -3,6 +3,7 @@ from typing import Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from app.core.database import get_db
 from app.core.security import hash_token
 from app.models.models import (
@@ -53,59 +54,91 @@ def view_invitation(token: str, db: Session = Depends(get_db)):
     org = db.query(Organization).filter(Organization.id == invitation.organization_id).first()
     vendor = db.query(Vendor).filter(Vendor.id == invitation.vendor_id).first() if invitation.vendor_id else None
 
-    # Check existing onboarding draft or submission
+    # Check existing onboarding draft or submission for THIS specific workflow version
     existing_responses = {}
     existing_documents = []
     is_submitted = False
     submission_status = None
     if vendor:
-        onboarding = (
-            db.query(VendorOnboarding)
-            .filter(VendorOnboarding.vendor_id == vendor.id)
-            .order_by(VendorOnboarding.created_at.desc())
-            .first()
-        )
+        if invitation.used_at is not None:
+            onboarding = (
+                db.query(VendorOnboarding)
+                .filter(
+                    VendorOnboarding.vendor_id == vendor.id,
+                    VendorOnboarding.workflow_version_id == version.id
+                )
+                .order_by(VendorOnboarding.created_at.desc())
+                .first()
+            )
+        else:
+            onboarding = (
+                db.query(VendorOnboarding)
+                .filter(
+                    VendorOnboarding.vendor_id == vendor.id,
+                    VendorOnboarding.workflow_version_id == version.id,
+                    VendorOnboarding.status.in_(["IN_PROGRESS", "RESUBMISSION_REQUESTED", "REJECTED"])
+                )
+                .order_by(VendorOnboarding.created_at.desc())
+                .first()
+            )
         if onboarding:
-            if onboarding.form_responses:
-                existing_responses = onboarding.form_responses
-            if onboarding.status in ("SUBMITTED", "APPROVED"):
+            if invitation.used_at is not None and onboarding.status in ("SUBMITTED", "APPROVED"):
                 is_submitted = True
                 submission_status = onboarding.status
+                if onboarding.form_responses:
+                    existing_responses = onboarding.form_responses
             elif onboarding.status in ("RESUBMISSION_REQUESTED", "REJECTED"):
                 is_submitted = False
                 submission_status = onboarding.status
+                if onboarding.form_responses:
+                    existing_responses = onboarding.form_responses
+            elif onboarding.status == "IN_PROGRESS":
+                is_submitted = False
+                submission_status = "IN_PROGRESS"
+                if onboarding.form_responses:
+                    existing_responses = onboarding.form_responses
 
-        docs = db.query(Document).filter(Document.vendor_id == vendor.id).all()
-        has_flagged_doc = False
-        for d in docs:
-            latest_review_reason = None
-            has_replacement = False
-            if d.reviews:
-                latest_review = d.reviews[-1]
-                latest_review_reason = latest_review.reason
-                if ensure_utc(d.submitted_at) > ensure_utc(latest_review.created_at):
-                    has_replacement = True
-            if d.status in ("RESUBMISSION_REQUESTED", "REJECTED"):
-                has_flagged_doc = True
-            existing_documents.append({
-                "id": d.id,
-                "field_id": d.field_id,
-                "document_type": d.document_type,
-                "original_filename": d.original_filename,
-                "file_size": d.file_size,
-                "mime_type": d.mime_type,
-                "expiry_date": d.expiry_date.isoformat() if d.expiry_date else None,
-                "status": d.status,
-                "review_reason": latest_review_reason,
-                "has_replacement": has_replacement,
-                "view_url": f"/api/v1/public/invitations/{token}/documents/{d.id}/view",
-                "download_url": f"/api/v1/public/invitations/{token}/documents/{d.id}/view?download=true"
-            })
+            docs = (
+                db.query(Document)
+                .filter(
+                    Document.vendor_id == vendor.id,
+                    Document.onboarding_id == onboarding.id
+                )
+                .all()
+            )
+            schema_field_ids = {f.get("id") for f in version.schema_definition.get("fields", []) if isinstance(f, dict)}
+            docs = [d for d in docs if d.field_id in schema_field_ids]
 
-        # If any document is rejected or requested for resubmission, allow immediate re-upload
-        if has_flagged_doc:
-            is_submitted = False
-            submission_status = "RESUBMISSION_REQUESTED"
+            has_flagged_doc = False
+            for d in docs:
+                latest_review_reason = None
+                has_replacement = False
+                if d.reviews:
+                    latest_review = d.reviews[-1]
+                    latest_review_reason = latest_review.reason
+                    if ensure_utc(d.submitted_at) > ensure_utc(latest_review.created_at):
+                        has_replacement = True
+                if d.status in ("RESUBMISSION_REQUESTED", "REJECTED"):
+                    has_flagged_doc = True
+                existing_documents.append({
+                    "id": d.id,
+                    "field_id": d.field_id,
+                    "document_type": d.document_type,
+                    "original_filename": d.original_filename,
+                    "file_size": d.file_size,
+                    "mime_type": d.mime_type,
+                    "expiry_date": d.expiry_date.isoformat() if d.expiry_date else None,
+                    "status": d.status,
+                    "review_reason": latest_review_reason,
+                    "has_replacement": has_replacement,
+                    "view_url": f"/api/v1/public/invitations/{token}/documents/{d.id}/view",
+                    "download_url": f"/api/v1/public/invitations/{token}/documents/{d.id}/view?download=true"
+                })
+
+            # If any document is rejected or requested for resubmission, allow immediate re-upload
+            if has_flagged_doc:
+                is_submitted = False
+                submission_status = "RESUBMISSION_REQUESTED"
 
     schema_def = version.schema_definition
     return PublicInvitationView(
@@ -152,14 +185,27 @@ async def upload_document(
         invitation.vendor_id = vendor.id
 
     # Find or create Onboarding instance
-    onboarding = (
-        db.query(VendorOnboarding)
-        .filter(
-            VendorOnboarding.vendor_id == vendor.id,
-            VendorOnboarding.workflow_version_id == version.id
+    if invitation.used_at is not None:
+        onboarding = (
+            db.query(VendorOnboarding)
+            .filter(
+                VendorOnboarding.vendor_id == vendor.id,
+                VendorOnboarding.workflow_version_id == version.id
+            )
+            .order_by(VendorOnboarding.created_at.desc())
+            .first()
         )
-        .first()
-    )
+    else:
+        onboarding = (
+            db.query(VendorOnboarding)
+            .filter(
+                VendorOnboarding.vendor_id == vendor.id,
+                VendorOnboarding.workflow_version_id == version.id,
+                VendorOnboarding.status.in_(["IN_PROGRESS", "RESUBMISSION_REQUESTED", "REJECTED"])
+            )
+            .order_by(VendorOnboarding.created_at.desc())
+            .first()
+        )
     if not onboarding:
         onboarding = VendorOnboarding(
             organization_id=invitation.organization_id,
@@ -186,11 +232,12 @@ async def upload_document(
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid expiry date format. Use YYYY-MM-DD.")
 
-    # Remove previous document for same field if any (resubmission)
+    # Remove previous document for same field in this onboarding if any (resubmission)
     existing_doc = (
         db.query(Document)
         .filter(
             Document.vendor_id == vendor.id,
+            Document.onboarding_id == onboarding.id,
             Document.field_id == field_id
         )
         .first()
@@ -319,10 +366,47 @@ def submit_onboarding(
         db.flush()
         invitation.vendor_id = vendor.id
 
+    # Update or create onboarding instance for THIS specific workflow version
+    if invitation.used_at is not None:
+        onboarding = (
+            db.query(VendorOnboarding)
+            .filter(
+                VendorOnboarding.vendor_id == vendor.id,
+                VendorOnboarding.workflow_version_id == version.id
+            )
+            .order_by(VendorOnboarding.created_at.desc())
+            .first()
+        )
+    else:
+        onboarding = (
+            db.query(VendorOnboarding)
+            .filter(
+                VendorOnboarding.vendor_id == vendor.id,
+                VendorOnboarding.workflow_version_id == version.id,
+                VendorOnboarding.status.in_(["IN_PROGRESS", "RESUBMISSION_REQUESTED", "REJECTED"])
+            )
+            .order_by(VendorOnboarding.created_at.desc())
+            .first()
+        )
+    if not onboarding:
+        onboarding = VendorOnboarding(
+            organization_id=invitation.organization_id,
+            vendor_id=vendor.id,
+            workflow_version_id=version.id,
+            status="IN_PROGRESS"
+        )
+        db.add(onboarding)
+        db.flush()
+
     schema_fields = version.schema_definition.get("fields", [])
     
-    # Validate required form fields and document uploads
-    existing_docs = {d.field_id: d for d in db.query(Document).filter(Document.vendor_id == vendor.id).all()}
+    # Validate required form fields and document uploads for THIS specific onboarding
+    existing_docs = {
+        d.field_id: d for d in db.query(Document).filter(
+            Document.vendor_id == vendor.id,
+            Document.onboarding_id == onboarding.id
+        ).all()
+    }
 
     missing_fields = []
     missing_docs = []
@@ -372,24 +456,6 @@ def submit_onboarding(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="; ".join(errors)
         )
-
-    # Update or create onboarding
-    onboarding = (
-        db.query(VendorOnboarding)
-        .filter(
-            VendorOnboarding.vendor_id == vendor.id,
-            VendorOnboarding.workflow_version_id == version.id
-        )
-        .first()
-    )
-    if not onboarding:
-        onboarding = VendorOnboarding(
-            organization_id=invitation.organization_id,
-            vendor_id=vendor.id,
-            workflow_version_id=version.id,
-        )
-        db.add(onboarding)
-        db.flush()
 
     onboarding.form_responses = payload.form_responses
     onboarding.submitted_at = datetime.now(timezone.utc)

@@ -20,6 +20,7 @@ class UserUpdate(BaseModel):
 
 class OrganizationUpdate(BaseModel):
     name: Optional[str] = None
+    slug: Optional[str] = None
     business_profile: Optional[Dict[str, Any]] = None
 
 class OrganizationResponse(BaseModel):

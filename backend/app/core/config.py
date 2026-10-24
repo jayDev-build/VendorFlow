@@ -46,10 +46,9 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o-mini"
 
-    # Google Gemini Models (Primary: Gemini 3.5, Secondary: Gemini 3.5 Flash-Lite)
+    # Google Gemini Model
     GEMINI_API_KEY: str = "AQ.Ab8RN6KKbm_ZMIsfVTInueuG5AulIjW6Et-tfL5tKVLjwx2-XQ"
     GEMINI_PRIMARY_MODEL: str = "gemini-3.5-flash"
-    GEMINI_SECONDARY_MODEL: str = "gemini-3.5-flash-lite"
     GEMINI_MODEL: str = "gemini-3.5-flash"
 
     # Email Delivery (Resend API or Standard SMTP / Gmail / Outlook)

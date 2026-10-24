@@ -270,7 +270,10 @@ async def _generate_with_ollama(
 You MUST output a valid JSON object matching the following JSON Schema:
 {json.dumps(schema_json)}
 
-Respond with pure JSON only. Do not include markdown codeblocks or commentary.
+IMPORTANT RULES:
+1. Respond with pure JSON only. Do not include markdown codeblocks or commentary.
+2. Output actual values (strings, booleans, integers, lists). NEVER copy schema definition metadata or types (e.g. {{"type": "string", "default": null}}) as values.
+3. For fields without specific regex or length validation rules, set "validation": null.
 """
 
     user_content = (
@@ -328,19 +331,34 @@ Respond with pure JSON only. Do not include markdown codeblocks or commentary.
             if "fields" in parsed_data and isinstance(parsed_data["fields"], list):
                 for idx, f in enumerate(parsed_data["fields"]):
                     if isinstance(f, dict):
-                        if not f.get("id"):
+                        if not f.get("id") or not isinstance(f.get("id"), str):
                             f["id"] = f"field_{idx}_{abs(hash(f.get('label', 'doc')))}"
-                        if f.get("track_expiry") is None:
+                        if f.get("track_expiry") is None or isinstance(f.get("track_expiry"), dict):
                             f["track_expiry"] = False
-                        if f.get("required") is None:
+                        if f.get("required") is None or isinstance(f.get("required"), dict):
                             f["required"] = True
+
+                        # Clean validation if model echoed schema definitions
+                        val = f.get("validation")
+                        if isinstance(val, dict):
+                            clean_val = {}
+                            if isinstance(val.get("pattern"), str) and val.get("pattern").strip():
+                                clean_val["pattern"] = val["pattern"].strip()
+                            if isinstance(val.get("min_length"), int):
+                                clean_val["min_length"] = val["min_length"]
+                            if isinstance(val.get("max_length"), int):
+                                clean_val["max_length"] = val["max_length"]
+                            if isinstance(val.get("options"), list):
+                                clean_val["options"] = [str(o) for o in val["options"] if isinstance(o, (str, int))]
+                            f["validation"] = clean_val if clean_val else None
+
                         if f.get("field_type") in ("dropdown", "checkbox"):
                             val_dict = f.get("validation") if isinstance(f.get("validation"), dict) else {}
                             raw_opts = f.get("options") or val_dict.get("options") or []
                             clean_opts = [str(o).strip() for o in raw_opts if str(o).strip()]
                             if clean_opts:
                                 f["options"] = clean_opts
-                                if "validation" not in f or not isinstance(f["validation"], dict):
+                                if not isinstance(f.get("validation"), dict):
                                     f["validation"] = {"options": clean_opts}
                                 else:
                                     f["validation"]["options"] = clean_opts
@@ -440,8 +458,8 @@ async def generate_workflow_from_requirements(
     """
     Generation Priority Hierarchy:
     1. First: Gemini 3.5 (gemini-3.5-flash)
-    2. If failed: Gemini 3.5 Flash-Lite (gemini-3.5-flash-lite)
-    3. If failed: Local Ollama (gemma4:e4b)
+    2. If failed: Local Ollama (gemma4:e4b)
+    3. If failed: OpenAI (If configured)
     4. If failed: Deterministic fallback generator
     """
     import os
@@ -463,29 +481,12 @@ async def generate_workflow_from_requirements(
                 logger.info(f"Successfully generated workflow using Gemini 3.5 ({primary_model})")
                 return result
         except Exception as e:
-            logger.warning(f"Tier 1 (Gemini 3.5: {primary_model}) failed: {type(e).__name__} - {e}. Falling back to Gemini 3.5 Flash-Lite.")
+            logger.warning(f"Tier 1 (Gemini 3.5: {primary_model}) failed: {type(e).__name__} - {e}. Falling back to Ollama.")
 
-        # --- 2. SECOND: GEMINI 3.5 FLASH-LITE ---
-        secondary_model = getattr(settings, "GEMINI_SECONDARY_MODEL", "gemini-3.5-flash-lite")
-        try:
-            logger.info(f"Tier 2: Checking form generation via Gemini 3.5 Flash-Lite ({secondary_model})...")
-            result = _generate_with_gemini(
-                model_name=secondary_model,
-                prompt=prompt,
-                workflow_name=workflow_name,
-                vendor_category=vendor_category,
-                description=description
-            )
-            if result:
-                logger.info(f"Successfully generated workflow using Gemini 3.5 Flash-Lite ({secondary_model})")
-                return result
-        except Exception as e:
-            logger.warning(f"Tier 2 (Gemini 3.5 Flash-Lite: {secondary_model}) failed: {type(e).__name__} - {e}. Falling back to Ollama.")
-
-    # --- 3. THIRD: OLLAMA LOCAL MODEL ---
+    # --- 2. SECOND: OLLAMA LOCAL MODEL ---
     if settings.OLLAMA_ENABLED:
         try:
-            logger.info(f"Tier 3: Checking form generation via local Ollama ({settings.OLLAMA_MODEL})...")
+            logger.info(f"Tier 2: Checking form generation via local Ollama ({settings.OLLAMA_MODEL})...")
             ollama_result = await _generate_with_ollama(
                 prompt=prompt,
                 workflow_name=workflow_name,
@@ -496,9 +497,9 @@ async def generate_workflow_from_requirements(
                 logger.info(f"Successfully generated workflow using local Ollama model {settings.OLLAMA_MODEL}")
                 return ollama_result
         except Exception as e:
-            logger.warning(f"Tier 3 (Local Ollama: {settings.OLLAMA_MODEL}) failed: {type(e).__name__} - {e}. Falling back to final safeguard.")
+            logger.warning(f"Tier 2 (Local Ollama: {settings.OLLAMA_MODEL}) failed: {type(e).__name__} - {e}. Falling back to final safeguard.")
 
-    # --- 4. FOURTH: OPENAI (If configured) ---
+    # --- 3. THIRD: OPENAI (If configured) ---
     if settings.OPENAI_API_KEY:
         try:
             logger.info(f"Checking form generation via OpenAI API (model: {settings.OPENAI_MODEL})...")
@@ -528,6 +529,6 @@ async def generate_workflow_from_requirements(
         except Exception as e:
             logger.warning(f"OpenAI fallback failed: {e}")
 
-    # --- 5. FINAL SAFEGUARD: DETERMINISTIC GENERATOR ---
+    # --- 4. FINAL SAFEGUARD: DETERMINISTIC GENERATOR ---
     logger.info("All LLM services failed or unavailable. Using intelligent deterministic fallback generator.")
     return generate_deterministic_fallback(prompt, workflow_name, vendor_category, description)

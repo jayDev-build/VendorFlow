@@ -87,13 +87,9 @@ function VendorOnboardingPortalContent() {
         const res = await api.getPublicInvitation(token);
         setData(res);
 
-        if (res.is_submitted) {
-          setSubmittedSuccess(true);
-        }
-        if (res.existing_responses) {
-          setFormResponses(res.existing_responses);
-        }
-        if (res.existing_documents) {
+        setSubmittedSuccess(Boolean(res.is_submitted));
+        setFormResponses(res.existing_responses || {});
+        if (res.existing_documents && res.existing_documents.length > 0) {
           const docsMap: Record<string, UploadedFileRecord> = {};
           const expMap: Record<string, string> = {};
           res.existing_documents.forEach((d) => {
@@ -115,6 +111,9 @@ function VendorOnboardingPortalContent() {
           });
           setUploadedFiles(docsMap);
           setDocumentExpiries(expMap);
+        } else {
+          setUploadedFiles({});
+          setDocumentExpiries({});
         }
       } catch (err: any) {
         setErrorMsg(err.message || 'Invalid or expired invitation link');

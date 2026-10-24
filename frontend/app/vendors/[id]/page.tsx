@@ -21,14 +21,17 @@ import {
   UserCheck,
   ExternalLink,
   Trash2,
-  Upload
+  Upload,
+  ChevronDown,
+  ChevronRight,
+  FileSpreadsheet
 } from 'lucide-react';
 import { TopNav } from '@/components/TopNav';
 import { StatusBadge } from '@/components/StatusBadge';
 import { DocumentReviewModal } from '@/components/DocumentReviewModal';
 import { UploadDocumentModal } from '@/components/UploadDocumentModal';
 import { api } from '@/lib/api';
-import { VendorDetail, DocumentItem } from '@/lib/types';
+import { VendorDetail, DocumentItem, VendorSubmissionItem } from '@/lib/types';
 
 import { Suspense } from 'react';
 
@@ -44,6 +47,16 @@ function VendorDetailContent() {
   const [actionLoading, setActionLoading] = useState(false);
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
 
+  // Expanded submissions accordion state
+  const [expandedSubmissions, setExpandedSubmissions] = useState<Record<string, boolean>>({});
+
+  const toggleSubmission = (subId: string) => {
+    setExpandedSubmissions(prev => ({
+      ...prev,
+      [subId]: !prev[subId]
+    }));
+  };
+
   // Active document for review modal
   const [reviewDoc, setReviewDoc] = useState<DocumentItem | null>(null);
   const [showUploadDocModal, setShowUploadDocModal] = useState(false);
@@ -54,6 +67,14 @@ function VendorDetailContent() {
       setErrorMsg('');
       const data = await api.getVendor(vendorId);
       setVendor(data);
+      if (data.submissions && data.submissions.length > 0) {
+        setExpandedSubmissions(prev => {
+          if (Object.keys(prev).length === 0) {
+            return { [data.submissions![0].id]: true };
+          }
+          return prev;
+        });
+      }
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to load vendor details');
     } finally {
@@ -357,40 +378,254 @@ function VendorDetailContent() {
           </div>
         </div>
 
-        {/* Onboarding Form Responses (If completed) */}
-        {vendor.onboarding_data?.form_responses && Object.keys(vendor.onboarding_data.form_responses).length > 0 && (
-          <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-2xs space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-indigo-500" />
-                <span>Vendor Form Submission Answers</span>
+        {/* Multi-Form Submissions & Questionnaire Responses Accordion */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileSpreadsheet className="w-5 h-5 text-indigo-600" />
+              <h2 className="text-base font-bold text-slate-900">
+                Form Responses & Submissions
               </h2>
-              {vendor.onboarding_data.submitted_at && (
-                <span className="text-xs text-slate-500 font-medium">
-                  Submitted {new Date(vendor.onboarding_data.submitted_at).toLocaleString()}
-                </span>
-              )}
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                {vendor.submissions?.length || (vendor.onboarding_data ? 1 : 0)} Total
+              </span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Object.entries(vendor.onboarding_data.form_responses).map(([key, value]) => {
-                const schemaField = vendor.active_workflow?.schema_definition?.fields?.find(
-                  (f: any) => f.id === key
-                );
-                const displayLabel = schemaField?.label || key.replace('field_', '').replace(/_/g, ' ');
+            <p className="text-xs text-slate-500 hidden sm:block">
+              Click any workflow header below to expand answers and attached documents.
+            </p>
+          </div>
+
+          {(!vendor.submissions || vendor.submissions.length === 0) && !vendor.onboarding_data?.form_responses ? (
+            <div className="bg-white p-8 rounded-2xl border border-slate-200/90 text-center text-slate-500 text-xs">
+              <FileText className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+              <span className="font-semibold text-slate-700">No form submissions recorded yet.</span>
+              <p className="text-slate-500 mt-1">This vendor has not submitted any workflow questionnaires yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {(vendor.submissions && vendor.submissions.length > 0
+                ? vendor.submissions
+                : [
+                    {
+                      id: vendor.onboarding_data?.id || 'legacy-sub',
+                      workflow_id: vendor.active_workflow?.version_id,
+                      workflow_name: vendor.active_workflow?.schema_definition?.name || 'Onboarding Form',
+                      workflow_category: vendor.category || 'General',
+                      version_number: vendor.active_workflow?.version_number || 1,
+                      status: vendor.onboarding_data?.status || vendor.status,
+                      submitted_at: vendor.onboarding_data?.submitted_at,
+                      form_responses: vendor.onboarding_data?.form_responses || {},
+                      schema_definition: vendor.active_workflow?.schema_definition || ({} as any),
+                      documents: vendor.documents || []
+                    } as VendorSubmissionItem
+                  ]
+              ).map((sub, index) => {
+                const isExpanded = !!expandedSubmissions[sub.id];
+                const responseCount = Object.keys(sub.form_responses || {}).length;
+                const docCount = sub.documents?.length || 0;
+
                 return (
-                  <div key={key} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 flex flex-col justify-between">
-                    <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">
-                      {displayLabel}
+                  <div
+                    key={sub.id || index}
+                    className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all"
+                  >
+                    {/* Clickable Header Accordion Bar */}
+                    <div
+                      onClick={() => toggleSubmission(sub.id)}
+                      className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:bg-slate-50/80 transition-colors select-none"
+                    >
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          className="p-1 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSubmission(sub.id);
+                          }}
+                        >
+                          {isExpanded ? (
+                            <ChevronDown className="w-5 h-5 text-indigo-600 transition-transform" />
+                          ) : (
+                            <ChevronRight className="w-5 h-5 text-slate-400 transition-transform" />
+                          )}
+                        </button>
+
+                        <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                          <FileText className="w-4 h-4 text-indigo-600" />
+                        </div>
+
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="text-sm font-bold text-slate-900 hover:text-indigo-600 transition-colors">
+                              {sub.workflow_name || 'Workflow Form'}
+                            </h3>
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                              v{sub.version_number}
+                            </span>
+                            {sub.workflow_category && (
+                              <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200">
+                                {sub.workflow_category}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-[11px] text-slate-500 font-medium mt-0.5">
+                            {sub.submitted_at ? (
+                              <span>Submitted {new Date(sub.submitted_at).toLocaleDateString()}</span>
+                            ) : (
+                              <span>In Progress / Not Submitted</span>
+                            )}
+                            <span>•</span>
+                            <span>{responseCount} answer{responseCount === 1 ? '' : 's'}</span>
+                            <span>•</span>
+                            <span>{docCount} document{docCount === 1 ? '' : 's'}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2.5 sm:self-center pl-12 sm:pl-0">
+                        <StatusBadge status={sub.status} size="sm" />
+                        {sub.workflow_id && (
+                          <Link
+                            href={`/workflows/${sub.workflow_id}/responses`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors"
+                            title="Open full responses spreadsheet for this workflow"
+                          >
+                            <span>Workflow Sheet</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </Link>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-xs font-semibold text-slate-900 mt-1 break-words">
-                      {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value || '—')}
-                    </div>
+
+                    {/* Collapsible Content */}
+                    {isExpanded && (
+                      <div className="border-t border-slate-100 p-5 sm:p-6 bg-slate-50/40 space-y-6 animate-fadeIn">
+                        {/* Questions & Answers Grid */}
+                        <div className="space-y-3">
+                          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                            <span>Questionnaire Answers</span>
+                            <span className="text-[10px] font-medium text-slate-500 normal-case">
+                              ({responseCount} fields answered)
+                            </span>
+                          </h4>
+
+                          {responseCount === 0 ? (
+                            <p className="text-xs text-slate-500 italic bg-white p-3.5 rounded-xl border border-slate-200">
+                              No form fields submitted for this response.
+                            </p>
+                          ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                              {Object.entries(sub.form_responses).map(([key, value]) => {
+                                const schemaField = sub.schema_definition?.fields?.find(
+                                  (f: any) => f.id === key
+                                );
+                                const displayLabel = schemaField?.label || key.replace('field_', '').replace(/_/g, ' ');
+                                return (
+                                  <div
+                                    key={key}
+                                    className="p-3.5 bg-white rounded-xl border border-slate-200/90 shadow-2xs flex flex-col justify-between"
+                                  >
+                                    <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">
+                                      {displayLabel}
+                                    </div>
+                                    <div className="text-xs font-semibold text-slate-900 mt-1.5 break-words">
+                                      {typeof value === 'boolean'
+                                        ? value
+                                          ? 'Yes'
+                                          : 'No'
+                                        : Array.isArray(value)
+                                        ? value.join(', ')
+                                        : String(value || '—')}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Documents attached to this submission */}
+                        {sub.documents && sub.documents.length > 0 && (
+                          <div className="space-y-3 border-t border-slate-200/60 pt-5">
+                            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                              <span>Attached Documents</span>
+                              <span className="text-[10px] font-medium text-slate-500 normal-case">
+                                ({sub.documents.length} files uploaded)
+                              </span>
+                            </h4>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {sub.documents.map((doc: any) => {
+                                const downloadFullUrl = doc.download_url
+                                  ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${doc.download_url}`
+                                  : '#';
+                                const isPdf = doc.mime_type === 'application/pdf' || /\.pdf$/i.test(doc.original_filename);
+                                const isImage = doc.mime_type?.startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(doc.original_filename);
+
+                                return (
+                                  <div
+                                    key={doc.id}
+                                    className="p-3.5 bg-white rounded-xl border border-slate-200/90 shadow-2xs flex items-center justify-between gap-3"
+                                  >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <div
+                                        className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+                                          isPdf
+                                            ? 'bg-rose-50 border border-rose-200 text-rose-700'
+                                            : isImage
+                                            ? 'bg-purple-50 border border-purple-200 text-purple-700'
+                                            : 'bg-indigo-50 border border-indigo-200 text-indigo-700'
+                                        }`}
+                                      >
+                                        {isPdf ? 'PDF' : isImage ? 'IMG' : 'DOC'}
+                                      </div>
+                                      <div className="min-w-0 space-y-0.5">
+                                        <div className="text-xs font-bold text-slate-900 truncate">
+                                          {doc.document_type || doc.original_filename}
+                                        </div>
+                                        <div className="text-[11px] text-slate-500 truncate">
+                                          {doc.original_filename} • {(doc.file_size / 1024).toFixed(0)} KB
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      <StatusBadge status={doc.status} size="sm" />
+                                      {doc.download_url && (
+                                        <a
+                                          href={downloadFullUrl}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+                                          title="View / Download"
+                                        >
+                                          <Download className="w-3.5 h-3.5" />
+                                        </a>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => setReviewDoc(doc as DocumentItem)}
+                                        className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
+                                      >
+                                        <ShieldCheck className="w-3 h-3" />
+                                        <span>Review</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Audit Timeline */}
         {vendor.recent_activity?.length > 0 && (

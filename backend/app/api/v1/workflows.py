@@ -15,6 +15,7 @@ from app.models.models import (
     AuditLog,
     User,
     Organization,
+    Document,
 )
 from app.schemas.workflow import (
     WorkflowGenerateRequest,
@@ -24,9 +25,15 @@ from app.schemas.workflow import (
     WorkflowSchemaDefinition,
     CreateInvitationRequest,
     InvitationResponse,
+    WorkflowResponsesPayload,
+    WorkflowResponseSubmission,
+    WorkflowResponseDocument,
+    WorkflowResponsesStats,
 )
 from app.services.ai_workflow_generator import generate_workflow_from_requirements
 from app.services.notification_service import notification_service
+from app.services.storage_service import storage_service
+from app.core.utils import ensure_utc
 from app.api.deps import get_current_user, get_current_org, verify_tenant_ownership
 
 router = APIRouter(prefix="/workflows", tags=["AI & Workflows"])
@@ -71,6 +78,18 @@ def list_workflows(
             latest_version = sorted(t.versions, key=lambda v: v.version_number, reverse=True)[0]
 
         schema_dict = latest_version.schema_definition if latest_version else {}
+        version_ids = [v.id for v in t.versions]
+        resp_count = (
+            db.query(VendorOnboarding)
+            .filter(
+                VendorOnboarding.organization_id == current_org.id,
+                VendorOnboarding.workflow_version_id.in_(version_ids),
+                VendorOnboarding.status.in_(["SUBMITTED", "APPROVED", "UNDER_REVIEW", "RESUBMISSION_REQUESTED", "REJECTED"])
+            )
+            .count()
+            if version_ids else 0
+        )
+
         results.append(
             WorkflowResponse(
                 id=t.id,
@@ -86,6 +105,7 @@ def list_workflows(
                 reminder_rules=latest_version.reminder_rules or [30, 7, 1] if latest_version else [30, 7, 1],
                 assumptions=latest_version.assumptions or [] if latest_version else [],
                 warnings=latest_version.warnings or [] if latest_version else [],
+                responses_count=resp_count,
                 created_at=t.created_at,
                 updated_at=t.updated_at
             )
@@ -519,3 +539,117 @@ def list_workflow_invitations(
         }
         for inv in invitations
     ]
+
+@router.get("/{workflow_id}/responses", response_model=WorkflowResponsesPayload)
+def get_workflow_responses(
+    workflow_id: str,
+    current_org: Organization = Depends(get_current_org),
+    db: Session = Depends(get_db)
+):
+    template = db.query(WorkflowTemplate).filter(WorkflowTemplate.id == workflow_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    verify_tenant_ownership(template.organization_id, current_org.id, "workflow")
+
+    latest_version = None
+    if template.current_version_id:
+        latest_version = db.query(WorkflowVersion).filter(WorkflowVersion.id == template.current_version_id).first()
+    elif template.versions:
+        latest_version = sorted(template.versions, key=lambda v: v.version_number, reverse=True)[0]
+
+    version_ids = [v.id for v in template.versions]
+    onboardings = (
+        db.query(VendorOnboarding)
+        .filter(
+            VendorOnboarding.organization_id == current_org.id,
+            VendorOnboarding.workflow_version_id.in_(version_ids),
+            VendorOnboarding.status.in_(["SUBMITTED", "APPROVED", "UNDER_REVIEW", "RESUBMISSION_REQUESTED", "REJECTED"])
+        )
+        .order_by(VendorOnboarding.submitted_at.desc(), VendorOnboarding.created_at.desc())
+        .all()
+    )
+
+    submissions_list = []
+    for ob in onboardings:
+        vendor = ob.vendor
+        # Fetch documents tied to this onboarding
+        docs = (
+            db.query(Document)
+            .filter(
+                Document.vendor_id == ob.vendor_id,
+                Document.onboarding_id == ob.id
+            )
+            .all()
+        )
+        doc_items = []
+        for d in docs:
+            signed_url = storage_service.generate_signed_download_url(
+                document_id=d.id,
+                organization_id=current_org.id
+            )
+            latest_review_reason = None
+            has_replacement = False
+            if d.reviews:
+                latest_review = d.reviews[-1]
+                latest_review_reason = latest_review.reason
+                if ensure_utc(d.submitted_at) > ensure_utc(latest_review.created_at):
+                    has_replacement = True
+
+            doc_items.append(
+                WorkflowResponseDocument(
+                    id=d.id,
+                    field_id=d.field_id,
+                    document_type=d.document_type,
+                    original_filename=d.original_filename,
+                    file_size=d.file_size,
+                    mime_type=d.mime_type,
+                    expiry_date=d.expiry_date,
+                    status=d.status,
+                    download_url=signed_url,
+                    review_reason=latest_review_reason,
+                    has_replacement=has_replacement,
+                    submitted_at=d.submitted_at
+                )
+            )
+
+        v_num = ob.workflow_version.version_number if ob.workflow_version else 1
+        submissions_list.append(
+            WorkflowResponseSubmission(
+                id=ob.id,
+                vendor_id=vendor.id if vendor else "",
+                vendor_name=vendor.name if vendor else "Unknown Vendor",
+                vendor_email=vendor.contact_email if vendor else "",
+                vendor_category=vendor.category if vendor else template.vendor_category,
+                status=ob.status,
+                submitted_at=ob.submitted_at,
+                approved_at=ob.approved_at,
+                created_at=ob.created_at,
+                form_responses=ob.form_responses or {},
+                documents=doc_items,
+                version_number=v_num
+            )
+        )
+
+    total_count = len(submissions_list)
+    pending_count = sum(1 for s in submissions_list if s.status in ("SUBMITTED", "UNDER_REVIEW"))
+    approved_count = sum(1 for s in submissions_list if s.status == "APPROVED")
+    resubmit_count = sum(1 for s in submissions_list if s.status in ("RESUBMISSION_REQUESTED", "REJECTED"))
+
+    return WorkflowResponsesPayload(
+        workflow={
+            "id": template.id,
+            "name": template.name,
+            "vendor_category": template.vendor_category,
+            "description": template.description,
+            "status": template.status,
+            "current_version_number": latest_version.version_number if latest_version else 1,
+            "schema_definition": latest_version.schema_definition if latest_version else {}
+        },
+        stats=WorkflowResponsesStats(
+            total_responses=total_count,
+            pending_review=pending_count,
+            approved=approved_count,
+            resubmission_requested=resubmit_count
+        ),
+        responses=submissions_list
+    )

@@ -191,10 +191,41 @@ def update_organization(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    updated_details = {}
     if data.name:
         current_org.name = data.name.strip()
+        updated_details["name"] = current_org.name
+
+    if data.slug:
+        clean_slug = slugify(data.slug).strip("-")
+        if not clean_slug:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Organization slug must contain at least one valid alphanumeric character."
+            )
+        if len(clean_slug) < 2:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Organization slug must be at least 2 characters long."
+            )
+        if clean_slug != current_org.slug:
+            existing = (
+                db.query(Organization)
+                .filter(Organization.slug == clean_slug, Organization.id != current_org.id)
+                .first()
+            )
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"The slug '{clean_slug}' is already taken by another organization. Please choose a different slug."
+                )
+            current_org.slug = clean_slug
+            updated_details["slug"] = current_org.slug
+
     if data.business_profile is not None:
         current_org.business_profile = data.business_profile
+        updated_details["business_profile"] = current_org.business_profile
+
     db.commit()
     db.refresh(current_org)
 
@@ -204,7 +235,7 @@ def update_organization(
         action="ORGANIZATION_UPDATED",
         entity_type="organization",
         entity_id=current_org.id,
-        details={"name": current_org.name}
+        details=updated_details or {"name": current_org.name}
     )
     db.add(audit)
     db.commit()
