@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'VendorFlow — AI-Powered Vendor Onboarding SaaS',
+  title: 'FormGate — AI-Powered Compliance & Document Onboarding SaaS',
   description:
-    'Generate structured onboarding workflows from plain English, collect and verify vendor certificates, and automatically track document expirations.',
+    'Generate structured compliance workflows from plain English, collect and verify client and vendor certificates, and automatically track document expirations.',
 };
 
 export default function RootLayout({

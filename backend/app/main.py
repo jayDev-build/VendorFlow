@@ -19,7 +19,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
-logger = logging.getLogger("vendorflow.main")
+logger = logging.getLogger("formgate.main")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
     scheduler_task = asyncio.create_task(
         start_expiry_scheduler_loop(interval_seconds=settings.EXPIRY_SCHEDULER_INTERVAL_SECONDS)
     )
-    logger.info("VendorFlow background expiry scheduler task started.")
+    logger.info("FormGate background expiry scheduler task started.")
 
     yield
 
@@ -41,11 +41,11 @@ async def lifespan(app: FastAPI):
         await scheduler_task
     except asyncio.CancelledError:
         pass
-    logger.info("VendorFlow background tasks stopped cleanly.")
+    logger.info("FormGate background tasks stopped cleanly.")
 
 app = FastAPI(
-    title="VendorFlow API",
-    description="AI-Powered Vendor Onboarding and Document Expiry Management SaaS API",
+    title="FormGate API",
+    description="AI-Powered Compliance Onboarding and Document Expiry Management SaaS API",
     version="1.0.0",
     lifespan=lifespan
 )

@@ -1,5 +1,5 @@
 from typing import Optional, Dict, Any
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
 class UserSignUp(BaseModel):
     email: EmailStr
@@ -12,11 +12,19 @@ class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = Field(None, min_length=2)
+    email: Optional[EmailStr] = None
+    current_password: Optional[str] = None
+    new_password: Optional[str] = Field(None, min_length=8)
+
 class OrganizationUpdate(BaseModel):
     name: Optional[str] = None
     business_profile: Optional[Dict[str, Any]] = None
 
 class OrganizationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     name: str
     slug: str
@@ -24,6 +32,8 @@ class OrganizationResponse(BaseModel):
     created_at: Any
 
 class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     email: str
     full_name: str

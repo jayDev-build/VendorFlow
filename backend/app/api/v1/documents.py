@@ -1,13 +1,14 @@
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 from dateutil import parser as date_parser
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Response, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+from app.core.config import settings
 from app.core.database import get_db
-from app.core.security import decode_access_token
+from app.core.security import decode_access_token, generate_secure_token, hash_token
 from app.models.models import (
     Document,
     DocumentReview,
@@ -16,6 +17,9 @@ from app.models.models import (
     User,
     Organization,
     AuditLog,
+    InvitationToken,
+    WorkflowVersion,
+    WorkflowTemplate,
 )
 from app.schemas.document import (
     DocumentDetailResponse,
@@ -332,6 +336,48 @@ def approve_document(
 
     return {"success": True, "document_id": doc.id, "status": "APPROVED", "vendor_status": vendor.status}
 
+def _generate_vendor_resubmission_link(vendor: Vendor, org_id: str, db: Session) -> Optional[str]:
+    onboarding = (
+        db.query(VendorOnboarding)
+        .filter(VendorOnboarding.vendor_id == vendor.id)
+        .order_by(VendorOnboarding.created_at.desc())
+        .first()
+    )
+    wv_id = None
+    if onboarding and onboarding.workflow_version_id:
+        wv_id = onboarding.workflow_version_id
+    elif vendor.invitations:
+        wv_id = vendor.invitations[0].workflow_version_id
+    else:
+        first_version = (
+            db.query(WorkflowVersion)
+            .join(WorkflowTemplate, WorkflowVersion.template_id == WorkflowTemplate.id)
+            .filter(WorkflowTemplate.organization_id == org_id)
+            .first()
+        )
+        wv_id = first_version.id if first_version else None
+
+    if not wv_id:
+        return None
+
+    raw_token = generate_secure_token(32)
+    t_hash = hash_token(raw_token)
+    expires = datetime.now(timezone.utc) + timedelta(days=settings.INVITATION_TOKEN_EXPIRE_DAYS)
+
+    new_invitation = InvitationToken(
+        organization_id=org_id,
+        workflow_version_id=wv_id,
+        vendor_id=vendor.id,
+        email=vendor.contact_email,
+        token_hash=t_hash,
+        expires_at=expires,
+        is_revoked=False
+    )
+    db.add(new_invitation)
+    db.commit()
+
+    return f"{settings.APP_BASE_URL}/vendor/onboard/{raw_token}"
+
 @router.post("/{document_id}/reject")
 def reject_document(
     document_id: str,
@@ -363,6 +409,16 @@ def reject_document(
     vendor = doc.vendor
     vendor.status = "REJECTED"
 
+    # Update vendor onboarding status
+    onboarding = (
+        db.query(VendorOnboarding)
+        .filter(VendorOnboarding.vendor_id == vendor.id)
+        .order_by(VendorOnboarding.created_at.desc())
+        .first()
+    )
+    if onboarding:
+        onboarding.status = "REJECTED"
+
     audit = AuditLog(
         organization_id=current_org.id,
         user_id=current_user.id,
@@ -374,12 +430,17 @@ def reject_document(
     db.add(audit)
     db.commit()
 
+    # Generate fresh secure resubmission link
+    resubmission_url = _generate_vendor_resubmission_link(vendor, current_org.id, db)
+
     # Notify vendor
-    subject = f"Document Rejected: {doc.document_type}"
+    subject = f"Action Required: Document Rejected ({doc.document_type})"
+    url_notice = f"\n\nPlease click the secure link below to review feedback and upload an updated document:\n{resubmission_url}\n" if resubmission_url else ""
     body = (
         f"Hello {vendor.name},\n\n"
         f"Your submitted document '{doc.document_type}' has been rejected by compliance review.\n\n"
-        f"Reason provided by reviewer:\n{action.reason}\n\n"
+        f"Reason provided by reviewer:\n{action.reason}"
+        f"{url_notice}\n"
         f"If you have questions, reply directly to this email to reach {current_user.full_name}.\n\n"
         f"Thank you,\n{current_user.full_name} ({current_user.email})\n{current_org.name} Compliance Team"
     )
@@ -394,10 +455,18 @@ def reject_document(
         body_text=body,
         idempotency_key=f"reject_{doc.id}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
         reply_to=current_user.email,
-        sender_name=f"{current_user.full_name} via {current_org.name}"
+        sender_name=f"{current_user.full_name} via {current_org.name}",
+        cta_url=resubmission_url,
+        cta_text="Review & Replace Document"
     )
 
-    return {"success": True, "document_id": doc.id, "status": "REJECTED", "reason": action.reason}
+    return {
+        "success": True,
+        "document_id": doc.id,
+        "status": "REJECTED",
+        "reason": action.reason,
+        "resubmission_url": resubmission_url
+    }
 
 @router.post("/{document_id}/request-resubmission")
 def request_resubmission(
@@ -430,6 +499,16 @@ def request_resubmission(
     vendor = doc.vendor
     vendor.status = "IN_PROGRESS"
 
+    # Update vendor onboarding status to allow resubmission
+    onboarding = (
+        db.query(VendorOnboarding)
+        .filter(VendorOnboarding.vendor_id == vendor.id)
+        .order_by(VendorOnboarding.created_at.desc())
+        .first()
+    )
+    if onboarding:
+        onboarding.status = "RESUBMISSION_REQUESTED"
+
     audit = AuditLog(
         organization_id=current_org.id,
         user_id=current_user.id,
@@ -441,16 +520,26 @@ def request_resubmission(
     db.add(audit)
     db.commit()
 
+    # Generate fresh secure resubmission link
+    resubmission_url = _generate_vendor_resubmission_link(vendor, current_org.id, db)
+
     notification_service.send_resubmission_request(
         db=db,
         document=doc,
         vendor=vendor,
         reason=action.reason.strip(),
+        resubmission_url=resubmission_url,
         reply_to=current_user.email,
         sender_name=f"{current_user.full_name} via {current_org.name}"
     )
 
-    return {"success": True, "document_id": doc.id, "status": "RESUBMISSION_REQUESTED"}
+    return {
+        "success": True,
+        "document_id": doc.id,
+        "status": "RESUBMISSION_REQUESTED",
+        "reason": action.reason,
+        "resubmission_url": resubmission_url
+    }
 
 @router.delete("/{document_id}")
 def delete_document(

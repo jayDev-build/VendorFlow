@@ -5,7 +5,7 @@ from app.core.database import SessionLocal
 from app.models.models import Document, Vendor, WorkflowVersion, ReminderRule
 from app.services.notification_service import notification_service
 
-logger = logging.getLogger("vendorflow.scheduler")
+logger = logging.getLogger("formgate.scheduler")
 
 def run_expiry_check_sync():
     """

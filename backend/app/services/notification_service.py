@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from app.core.config import settings
 from app.models.models import NotificationJob, Document, Vendor, User
 
-logger = logging.getLogger("vendorflow.notifications")
+logger = logging.getLogger("formgate.notifications")
 
 class NotificationService:
     def __init__(self):
@@ -92,7 +92,9 @@ class NotificationService:
         body_text: str,
         idempotency_key: str,
         reply_to: Optional[str] = None,
-        sender_name: Optional[str] = None
+        sender_name: Optional[str] = None,
+        cta_url: Optional[str] = None,
+        cta_text: Optional[str] = None
     ) -> NotificationJob:
         """
         Idempotently sends and records a notification.
@@ -123,6 +125,22 @@ class NotificationService:
             db.rollback()
             return db.query(NotificationJob).filter(NotificationJob.idempotency_key == idempotency_key).first()
 
+        # Call-to-action button block
+        cta_block = ""
+        if cta_url:
+            button_label = cta_text or "Access Onboarding Portal"
+            cta_block = f"""
+            <div style="margin: 28px 0; text-align: center;">
+                <a href="{cta_url}" style="background-color: #4f46e5; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 14px; display: inline-block; box-shadow: 0 2px 4px rgba(79, 70, 229, 0.25);">
+                    {button_label} &rarr;
+                </a>
+                <div style="margin-top: 12px; font-size: 12px; color: #64748b; line-height: 1.4;">
+                    Or copy and paste this secure link into your browser:<br/>
+                    <a href="{cta_url}" style="color: #4f46e5; word-break: break-all;">{cta_url}</a>
+                </div>
+            </div>
+            """
+
         # Sender identity box
         sender_card = ""
         if reply_to or sender_name:
@@ -139,15 +157,16 @@ class NotificationService:
 
         # Send email or log in dev mode
         html_content = f"""
-        <div style="font-family: sans-serif; padding: 24px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px;">
-            <div style="border-bottom: 2px solid #6366f1; padding-bottom: 12px; margin-bottom: 16px;">
-                <h2 style="color: #0f172a; margin: 0;">VendorFlow Notification</h2>
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 28px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+            <div style="border-bottom: 2px solid #6366f1; padding-bottom: 14px; margin-bottom: 18px;">
+                <h2 style="color: #0f172a; margin: 0; font-size: 20px;">FormGate Compliance Notification</h2>
             </div>
-            <h3 style="color: #334155; margin-top: 0;">{subject}</h3>
-            <p style="line-height: 1.6; font-size: 15px;">{body_text.replace(chr(10), '<br/>')}</p>
+            <h3 style="color: #334155; margin-top: 0; font-size: 16px;">{subject}</h3>
+            <p style="line-height: 1.6; font-size: 14px; color: #334155;">{body_text.replace(chr(10), '<br/>')}</p>
+            {cta_block}
             {sender_card}
             <div style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #f1f5f9; font-size: 12px; color: #64748b;">
-                Sent securely by VendorFlow Document Lifecycle Platform.
+                Sent securely by FormGate Enterprise Document Lifecycle Platform.
             </div>
         </div>
         """
@@ -238,18 +257,22 @@ class NotificationService:
         document: Document,
         vendor: Vendor,
         reason: str,
+        resubmission_url: Optional[str] = None,
         reply_to: Optional[str] = None,
         sender_name: Optional[str] = None
     ) -> NotificationJob:
         timestamp_slug = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
         idempotency_key = f"resubmit_{document.id}_{timestamp_slug}"
 
-        subject = f"Document Resubmission Requested: {document.document_type}"
-        signer = f"{sender_name}\n({reply_to})" if reply_to and sender_name else "VendorFlow Compliance Team"
+        subject = f"Action Required: Document Resubmission Requested ({document.document_type})"
+        signer = f"{sender_name}\n({reply_to})" if reply_to and sender_name else "FormGate Compliance Team"
+        
+        url_text = f"\n\nPlease click the secure link below to review feedback and re-upload your document:\n{resubmission_url}\n" if resubmission_url else ""
         body = (
             f"Hello {vendor.name},\n\n"
             f"Your submission for '{document.document_type}' requires attention and resubmission.\n\n"
-            f"Reason provided by reviewer:\n{reason}\n\n"
+            f"Reason provided by reviewer:\n{reason}"
+            f"{url_text}\n"
             f"Please update and re-upload the requested document at your earliest convenience.\n\n"
             f"Thank you,\n{signer}"
         )
@@ -265,7 +288,9 @@ class NotificationService:
             body_text=body,
             idempotency_key=idempotency_key,
             reply_to=reply_to,
-            sender_name=sender_name
+            sender_name=sender_name,
+            cta_url=resubmission_url,
+            cta_text="Review & Re-upload Document"
         )
 
 notification_service = NotificationService()

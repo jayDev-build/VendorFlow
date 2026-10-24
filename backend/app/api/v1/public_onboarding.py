@@ -17,6 +17,7 @@ from app.models.models import (
 from app.schemas.vendor import PublicInvitationView, PublicSubmissionPayload
 from app.services.storage_service import storage_service
 from app.services.notification_service import notification_service
+from app.core.utils import ensure_utc
 from dateutil import parser as date_parser
 
 router = APIRouter(prefix="/public/invitations", tags=["Public Vendor Portal"])
@@ -70,9 +71,22 @@ def view_invitation(token: str, db: Session = Depends(get_db)):
             if onboarding.status in ("SUBMITTED", "APPROVED"):
                 is_submitted = True
                 submission_status = onboarding.status
+            elif onboarding.status in ("RESUBMISSION_REQUESTED", "REJECTED"):
+                is_submitted = False
+                submission_status = onboarding.status
 
         docs = db.query(Document).filter(Document.vendor_id == vendor.id).all()
+        has_flagged_doc = False
         for d in docs:
+            latest_review_reason = None
+            has_replacement = False
+            if d.reviews:
+                latest_review = d.reviews[-1]
+                latest_review_reason = latest_review.reason
+                if ensure_utc(d.submitted_at) > ensure_utc(latest_review.created_at):
+                    has_replacement = True
+            if d.status in ("RESUBMISSION_REQUESTED", "REJECTED"):
+                has_flagged_doc = True
             existing_documents.append({
                 "id": d.id,
                 "field_id": d.field_id,
@@ -82,15 +96,22 @@ def view_invitation(token: str, db: Session = Depends(get_db)):
                 "mime_type": d.mime_type,
                 "expiry_date": d.expiry_date.isoformat() if d.expiry_date else None,
                 "status": d.status,
+                "review_reason": latest_review_reason,
+                "has_replacement": has_replacement,
                 "view_url": f"/api/v1/public/invitations/{token}/documents/{d.id}/view",
                 "download_url": f"/api/v1/public/invitations/{token}/documents/{d.id}/view?download=true"
             })
+
+        # If any document is rejected or requested for resubmission, allow immediate re-upload
+        if has_flagged_doc:
+            is_submitted = False
+            submission_status = "RESUBMISSION_REQUESTED"
 
     schema_def = version.schema_definition
     return PublicInvitationView(
         valid=True,
         email=invitation.email,
-        organization_name=org.name if org else "VendorFlow Organization",
+        organization_name=org.name if org else "FormGate Organization",
         workflow_name=schema_def.get("name", "Vendor Onboarding"),
         workflow_description=schema_def.get("description"),
         vendor_category=schema_def.get("vendor_category", "General"),
@@ -180,8 +201,10 @@ async def upload_document(
         existing_doc.mime_type = mime_type
         existing_doc.storage_path = storage_path
         existing_doc.expiry_date = parsed_expiry
-        existing_doc.status = "SUBMITTED"
         existing_doc.submitted_at = datetime.now(timezone.utc)
+        # Do not change the status on form/backend for resubmitted document until submit is hit!
+        if existing_doc.status not in ("RESUBMISSION_REQUESTED", "REJECTED"):
+            existing_doc.status = "SUBMITTED"
         doc = existing_doc
     else:
         doc = Document(
@@ -213,6 +236,7 @@ async def upload_document(
         "mime_type": doc.mime_type,
         "expiry_date": doc.expiry_date.isoformat() if doc.expiry_date else None,
         "status": doc.status,
+        "has_replacement": True,
         "view_url": f"/api/v1/public/invitations/{token}/documents/{doc.id}/view",
         "download_url": f"/api/v1/public/invitations/{token}/documents/{doc.id}/view?download=true"
     }
@@ -313,6 +337,11 @@ def submit_onboarding(
         if ftype == "file_upload":
             if is_req and fid not in existing_docs:
                 missing_docs.append(f.get("label", fid))
+            elif is_req and fid in existing_docs and existing_docs[fid].status in ("REJECTED", "RESUBMISSION_REQUESTED"):
+                doc = existing_docs[fid]
+                latest_review = doc.reviews[-1] if doc.reviews else None
+                if not latest_review or ensure_utc(doc.submitted_at) <= ensure_utc(latest_review.created_at):
+                    missing_docs.append(f"{f.get('label', fid)} (replacement file required)")
             elif fid in existing_docs and track_exp:
                 # Check if expiry was saved or provided in payload
                 doc = existing_docs[fid]
@@ -363,11 +392,9 @@ def submit_onboarding(
         db.flush()
 
     onboarding.form_responses = payload.form_responses
-    onboarding.status = "SUBMITTED"
     onboarding.submitted_at = datetime.now(timezone.utc)
 
-    # Update vendor status & contact details from responses if provided
-    vendor.status = "SUBMITTED"
+    # Update vendor contact details from responses if provided
     for key, val in payload.form_responses.items():
         if not val or not isinstance(val, str):
             continue
@@ -379,9 +406,23 @@ def submit_onboarding(
             if any(term in k for term in ["phone", "mobile", "contact_number", "telephone"]):
                 vendor.contact_phone = val.strip()
 
-    # Mark all uploaded docs as SUBMITTED / UNDER_REVIEW
+    # Only transition documents that were newly submitted or replaced to UNDER_REVIEW.
+    # Prior APPROVED documents that the vendor did not change remain APPROVED,
+    # ensuring the compliance dashboard user does not have to re-review them.
+    has_pending_reviews = False
     for doc in existing_docs.values():
-        doc.status = "UNDER_REVIEW"
+        if doc.status != "APPROVED":
+            doc.status = "UNDER_REVIEW"
+            has_pending_reviews = True
+
+    if has_pending_reviews:
+        onboarding.status = "SUBMITTED"
+        vendor.status = "SUBMITTED"
+    else:
+        # All required documents were already approved and untouched
+        onboarding.status = "APPROVED"
+        onboarding.approved_at = onboarding.approved_at or datetime.now(timezone.utc)
+        vendor.status = "APPROVED"
 
     # Mark invitation as used
     invitation.used_at = datetime.now(timezone.utc)

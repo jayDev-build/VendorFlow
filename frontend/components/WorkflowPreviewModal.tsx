@@ -122,21 +122,28 @@ export const WorkflowPreviewModal: React.FC<WorkflowPreviewModalProps> = ({ sche
                       </div>
                     )}
                   </div>
-                ) : field.field_type === 'dropdown' ? (
-                  <div className="pt-1">
-                    <select
-                      disabled
-                      className="min-w-[220px] text-sm px-3 py-2 rounded-md border border-slate-300 bg-white text-slate-900 font-normal"
-                    >
-                      <option value="">Choose</option>
-                      {field.validation?.options?.map((opt, i) => (
-                        <option key={i} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : field.field_type === 'long_text' ? (
+                ) : field.field_type === 'dropdown' ? (() => {
+                  const opts = (field.options && field.options.length > 0)
+                    ? field.options
+                    : (field.validation?.options && field.validation.options.length > 0)
+                    ? field.validation.options
+                    : ['Option 1', 'Option 2', 'Option 3'];
+                  return (
+                    <div className="pt-1">
+                      <select
+                        disabled
+                        className="min-w-[220px] text-sm px-3 py-2 rounded-md border border-slate-300 bg-white text-slate-900 font-normal"
+                      >
+                        <option value="">Choose</option>
+                        {opts.map((opt, i) => (
+                          <option key={i} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })() : field.field_type === 'long_text' ? (
                   <div className="pt-1">
                     <textarea
                       disabled
@@ -145,18 +152,27 @@ export const WorkflowPreviewModal: React.FC<WorkflowPreviewModalProps> = ({ sche
                       className="w-full border-0 border-b border-slate-300 py-2 text-sm text-slate-900 placeholder:text-slate-400 bg-transparent resize-none"
                     />
                   </div>
-                ) : field.field_type === 'checkbox' ? (
-                  <div className="pt-2">
-                    <label className="flex items-center gap-3 cursor-pointer text-sm text-slate-800 font-normal">
-                      <input
-                        type="checkbox"
-                        disabled
-                        className="w-4 h-4 rounded text-[#673ab7] border-slate-400"
-                      />
-                      <span>I confirm and agree to this requirement</span>
-                    </label>
-                  </div>
-                ) : field.field_type === 'date' ? (
+                ) : field.field_type === 'checkbox' ? (() => {
+                  const opts = (field.options && field.options.length > 0)
+                    ? field.options
+                    : (field.validation?.options && field.validation.options.length > 0)
+                    ? field.validation.options
+                    : ['I confirm and agree to this requirement'];
+                  return (
+                    <div className="pt-2 space-y-2.5">
+                      {opts.map((opt, i) => (
+                        <label key={i} className="flex items-start gap-3 cursor-pointer text-sm text-slate-800 font-normal">
+                          <input
+                            type="checkbox"
+                            disabled
+                            className="w-4 h-4 mt-0.5 rounded text-[#673ab7] border-slate-400"
+                          />
+                          <span className="leading-snug">{opt}</span>
+                        </label>
+                      ))}
+                    </div>
+                  );
+                })() : field.field_type === 'date' ? (
                   <div className="pt-1">
                     <input
                       type="date"
@@ -207,7 +223,7 @@ export const WorkflowPreviewModal: React.FC<WorkflowPreviewModalProps> = ({ sche
           <div className="text-center pt-4 pb-6 space-y-1 text-xs text-slate-500">
             <div className="flex items-center justify-center gap-1 font-medium text-slate-600">
               <ShieldCheck className="w-4 h-4 text-[#673ab7]" />
-              <span>Secured by VendorFlow Enterprise Onboarding</span>
+              <span>Secured by FormGate Enterprise Onboarding</span>
             </div>
           </div>
         </div>

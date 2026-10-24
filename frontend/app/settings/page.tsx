@@ -13,82 +13,143 @@ import {
   CheckCircle2,
   AlertTriangle,
   User,
-  Key
+  Key,
+  Mail,
+  Lock,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { TopNav } from '@/components/TopNav';
 import { api } from '@/lib/api';
 
 export default function SettingsPage() {
   const [org, setOrg] = useState<{ id: string; name: string; slug: string; business_profile?: any } | null>(null);
-  const [user, setUser] = useState<{ full_name: string; email: string; role: string } | null>(null);
+  const [user, setUser] = useState<{ id?: string; full_name: string; email: string; role: string } | null>(null);
+
+  // Organization settings state
   const [orgName, setOrgName] = useState('');
   const [industry, setIndustry] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [successMsg, setSuccessMsg] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
+  const [orgLoading, setOrgLoading] = useState(false);
+  const [orgSuccessMsg, setOrgSuccessMsg] = useState('');
+  const [orgErrorMsg, setOrgErrorMsg] = useState('');
+
+  // Administrator settings state
+  const [adminName, setAdminName] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminSuccessMsg, setAdminSuccessMsg] = useState('');
+  const [adminErrorMsg, setAdminErrorMsg] = useState('');
 
   useEffect(() => {
     const session = api.getCurrentSession();
     if (session.org) {
       setOrg(session.org);
       setOrgName(session.org.name);
-      setIndustry(session.org.business_profile?.industry || 'Supply Chain & Logistics');
+      setIndustry(session.org.business_profile?.industry || 'CA & Tax Firms');
     }
     if (session.user) {
       setUser(session.user);
+      setAdminName(session.user.full_name || '');
+      setAdminEmail(session.user.email || '');
     }
   }, []);
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleOrgSave = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      setLoading(true);
-      setErrorMsg('');
+      setOrgLoading(true);
+      setOrgErrorMsg('');
+      setOrgSuccessMsg('');
       const updated = await api.updateOrganization({
-        name: orgName,
+        name: orgName.trim(),
         business_profile: {
           ...(org?.business_profile || {}),
-          industry
+          industry: industry.trim()
         }
       });
       setOrg(updated);
-      setSuccessMsg('Organization settings updated successfully.');
+      setOrgSuccessMsg('Organization settings updated successfully.');
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to update settings');
+      setOrgErrorMsg(err.message || 'Failed to update organization settings');
     } finally {
-      setLoading(false);
+      setOrgLoading(false);
+    }
+  };
+
+  const handleAdminSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setAdminLoading(true);
+      setAdminErrorMsg('');
+      setAdminSuccessMsg('');
+
+      if (!adminName.trim()) {
+        throw new Error('Full name cannot be blank');
+      }
+      if (!adminEmail.trim()) {
+        throw new Error('Email address cannot be blank');
+      }
+
+      if (newPassword) {
+        if (!currentPassword) {
+          throw new Error('Current password is required to set a new password');
+        }
+        if (newPassword.length < 8) {
+          throw new Error('New password must be at least 8 characters long');
+        }
+        if (newPassword !== confirmPassword) {
+          throw new Error('New password confirmation does not match');
+        }
+      }
+
+      const payload: {
+        full_name: string;
+        email: string;
+        current_password?: string;
+        new_password?: string;
+      } = {
+        full_name: adminName.trim(),
+        email: adminEmail.trim()
+      };
+
+      if (newPassword) {
+        payload.current_password = currentPassword;
+        payload.new_password = newPassword;
+      }
+
+      const updated = await api.updateCurrentUser(payload);
+      setUser(updated);
+      setAdminName(updated.full_name);
+      setAdminEmail(updated.email);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setShowPasswordChange(false);
+      setAdminSuccessMsg('Administrator profile and credentials updated successfully.');
+    } catch (err: any) {
+      setAdminErrorMsg(err.message || 'Failed to update administrator profile');
+    } finally {
+      setAdminLoading(false);
     }
   };
 
   return (
     <div className="flex-1 flex flex-col min-w-0">
       <TopNav
-        title="Organization Settings"
-        subtitle="Manage business profiles, enterprise tenant parameters, and integration health"
+        title="Settings & Administration"
+        subtitle="Manage FormGate organization profile, tenant parameters, and administrator security"
       />
 
       <main className="p-6 max-w-4xl mx-auto w-full space-y-6">
-        {errorMsg && (
-          <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs">
-            {errorMsg}
-          </div>
-        )}
-
-        {successMsg && (
-          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <span>{successMsg}</span>
-            </div>
-            <button onClick={() => setSuccessMsg('')} className="font-semibold underline">Dismiss</button>
-          </div>
-        )}
-
         {/* System & Architecture Status Cards */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-4">
           <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
             <Cpu className="w-4 h-4 text-indigo-600" />
-            <span>Platform Integration & Security Engine</span>
+            <span>FormGate Platform Integration & Security Engine</span>
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
@@ -106,11 +167,11 @@ export default function SettingsPage() {
             <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
               <div className="flex items-center gap-2 text-slate-700 text-xs font-semibold mb-1">
                 <Cpu className="w-4 h-4 text-indigo-500" />
-                <span>AI Generator</span>
+                <span>AI Multi-Tier</span>
               </div>
               <div className="text-[11px] text-emerald-600 font-medium flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span>Structured Output Ready</span>
+                <span>Gemini 3.5 & Ollama</span>
               </div>
             </div>
 
@@ -121,7 +182,7 @@ export default function SettingsPage() {
               </div>
               <div className="text-[11px] text-emerald-600 font-medium flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span>Private Vault & Signed URLs</span>
+                <span>Private Vault Active</span>
               </div>
             </div>
 
@@ -138,80 +199,213 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Organization Profile Settings Form */}
+        {/* Administrator Profile & Security Form (Interactive Editing) */}
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
-          <div className="p-5 border-b border-slate-200">
-            <h2 className="text-sm font-semibold text-slate-900">Organization Profile</h2>
-            <p className="text-xs text-slate-700 font-medium">Configure business information shown on external vendor invitations</p>
+          <div className="p-5 border-b border-slate-200 flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                <User className="w-4 h-4 text-indigo-600" />
+                <span>Administrator Profile & Security</span>
+              </h2>
+              <p className="text-xs text-slate-700 font-medium mt-0.5">
+                Update your administrative login credentials, name, and security password
+              </p>
+            </div>
+            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+              {user?.role || 'System Administrator'}
+            </span>
           </div>
 
-          <form onSubmit={handleSave} className="p-6 space-y-4">
+          <form onSubmit={handleAdminSave} className="p-6 space-y-5">
+            {adminErrorMsg && (
+              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex items-center justify-between">
+                <span>{adminErrorMsg}</span>
+                <button type="button" onClick={() => setAdminErrorMsg('')} className="font-semibold underline ml-2">Dismiss</button>
+              </div>
+            )}
+
+            {adminSuccessMsg && (
+              <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{adminSuccessMsg}</span>
+                </div>
+                <button type="button" onClick={() => setAdminSuccessMsg('')} className="font-semibold underline ml-2">Dismiss</button>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-900 mb-1">Organization Name</label>
-                <input
-                  type="text"
-                  required
-                  value={orgName}
-                  onChange={(e) => setOrgName(e.target.value)}
-                  className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 font-medium placeholder-slate-500"
-                />
+                <label className="block text-xs font-semibold text-slate-900 mb-1.5">Full Name</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    value={adminName}
+                    onChange={(e) => setAdminName(e.target.value)}
+                    placeholder="e.g. Sarah Jenkins"
+                    className="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 font-medium placeholder-slate-400"
+                  />
+                </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-900 mb-1">Organization Slug (Tenant Scope)</label>
-                <input
-                  type="text"
-                  disabled
-                  value={org?.slug || 'acme-corp'}
-                  className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 bg-slate-100 text-slate-800 font-mono font-semibold"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-900 mb-1">Primary Business Industry</label>
-                <input
-                  type="text"
-                  value={industry}
-                  onChange={(e) => setIndustry(e.target.value)}
-                  className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 font-medium placeholder-slate-500"
-                />
+                <label className="block text-xs font-semibold text-slate-900 mb-1.5">Email Address (Login Identity)</label>
+                <div className="relative">
+                  <input
+                    type="email"
+                    required
+                    value={adminEmail}
+                    onChange={(e) => setAdminEmail(e.target.value)}
+                    placeholder="admin@formgate.io"
+                    className="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 font-mono font-medium placeholder-slate-400"
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="pt-4 border-t border-slate-100 flex justify-end">
+            {/* Password Change Expandable Section */}
+            <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50/50">
+              <button
+                type="button"
+                onClick={() => setShowPasswordChange(!showPasswordChange)}
+                className="w-full px-4 py-3 flex items-center justify-between text-left text-xs font-semibold text-slate-800 hover:bg-slate-100/70 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Key className="w-3.5 h-3.5 text-slate-600" />
+                  <span>Change Password (Optional)</span>
+                </div>
+                {showPasswordChange ? (
+                  <ChevronUp className="w-4 h-4 text-slate-500" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-slate-500" />
+                )}
+              </button>
+
+              {showPasswordChange && (
+                <div className="p-4 border-t border-slate-200 bg-white grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Current Password</label>
+                    <input
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 font-mono placeholder-slate-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">New Password</label>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Min 8 characters"
+                      className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 font-mono placeholder-slate-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Confirm New Password</label>
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Repeat new password"
+                      className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 font-mono placeholder-slate-400"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 flex justify-end">
               <button
                 type="submit"
-                disabled={loading}
+                disabled={adminLoading}
                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs disabled:opacity-50"
               >
                 <Save className="w-3.5 h-3.5" />
-                <span>{loading ? 'Saving...' : 'Save Settings'}</span>
+                <span>{adminLoading ? 'Updating Profile...' : 'Save Administrator Profile'}</span>
               </button>
             </div>
           </form>
         </div>
 
-        {/* Administrator Profile Details */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3">
-          <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-            <User className="w-4 h-4 text-slate-600" />
-            <span>Active Administrator Session</span>
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <div>
-              <span className="text-[11px] font-bold text-slate-700 uppercase">Name</span>
-              <div className="font-bold text-slate-900">{user?.full_name || 'Sarah Jenkins'}</div>
-            </div>
-            <div>
-              <span className="text-[11px] font-bold text-slate-700 uppercase">Email</span>
-              <div className="font-bold text-slate-900 font-mono">{user?.email || 'demo@vendorflow.io'}</div>
-            </div>
-            <div>
-              <span className="text-[11px] font-bold text-slate-700 uppercase">Role</span>
-              <div className="font-bold text-indigo-700 uppercase">{user?.role || 'admin'}</div>
-            </div>
+        {/* Organization Profile Settings Form */}
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+          <div className="p-5 border-b border-slate-200">
+            <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-indigo-600" />
+              <span>Organization Profile & Tenancy</span>
+            </h2>
+            <p className="text-xs text-slate-700 font-medium mt-0.5">
+              Configure legal entity information displayed on external invitation links and onboarding portals
+            </p>
           </div>
+
+          <form onSubmit={handleOrgSave} className="p-6 space-y-4">
+            {orgErrorMsg && (
+              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex items-center justify-between">
+                <span>{orgErrorMsg}</span>
+                <button type="button" onClick={() => setOrgErrorMsg('')} className="font-semibold underline ml-2">Dismiss</button>
+              </div>
+            )}
+
+            {orgSuccessMsg && (
+              <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{orgSuccessMsg}</span>
+                </div>
+                <button type="button" onClick={() => setOrgSuccessMsg('')} className="font-semibold underline ml-2">Dismiss</button>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-900 mb-1.5">Organization Name</label>
+                <input
+                  type="text"
+                  required
+                  value={orgName}
+                  onChange={(e) => setOrgName(e.target.value)}
+                  className="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 font-medium placeholder-slate-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-900 mb-1.5">Organization Slug (Tenant Scope)</label>
+                <input
+                  type="text"
+                  disabled
+                  value={org?.slug || 'formgate-enterprise'}
+                  className="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 bg-slate-100 text-slate-800 font-mono font-semibold"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-slate-900 mb-1.5">Primary Business Industry</label>
+                <input
+                  type="text"
+                  value={industry}
+                  onChange={(e) => setIndustry(e.target.value)}
+                  placeholder="e.g. CA & Tax Audit Firms, Manufacturing & D2C, Healthcare Staffing"
+                  className="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 font-medium placeholder-slate-400"
+                />
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex justify-end">
+              <button
+                type="submit"
+                disabled={orgLoading}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs disabled:opacity-50"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>{orgLoading ? 'Saving...' : 'Save Organization Settings'}</span>
+              </button>
+            </div>
+          </form>
         </div>
       </main>
     </div>

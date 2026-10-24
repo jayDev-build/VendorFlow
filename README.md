@@ -1,6 +1,6 @@
-# VendorFlow — AI-Powered Vendor Onboarding & Document Expiry SaaS
+# FormGate — AI-Powered Compliance Onboarding & Document Expiry SaaS
 
-**VendorFlow** is an enterprise-grade vendor onboarding and compliance lifecycle management SaaS. It enables compliance managers to transform plain-English onboarding guidelines into structured, versioned digital workflows, securely collect and verify vendor certificates, and automatically monitor document expirations with idempotent background reminder schedules.
+**FormGate** is an enterprise-grade compliance onboarding and document lifecycle management SaaS. It enables compliance managers to transform plain-English onboarding guidelines into structured, versioned digital workflows, securely collect and verify client and vendor certificates, and automatically monitor document expirations with idempotent background reminder schedules.
 
 ---
 

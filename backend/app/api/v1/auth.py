@@ -9,6 +9,7 @@ from app.schemas.auth import (
     UserLogin,
     Token,
     UserResponse,
+    UserUpdate,
     OrganizationResponse,
     OrganizationUpdate
 )
@@ -126,6 +127,58 @@ def get_current_user_profile(
         "user": current_user,
         "organization": current_org
     }
+
+@router.patch("/me", response_model=UserResponse)
+def update_current_user_profile(
+    data: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    current_org: Organization = Depends(get_current_org),
+    db: Session = Depends(get_db)
+):
+    updated_fields = {}
+    if data.full_name is not None and data.full_name.strip() and data.full_name.strip() != current_user.full_name:
+        current_user.full_name = data.full_name.strip()
+        updated_fields["full_name"] = current_user.full_name
+
+    if data.email is not None and data.email.lower().strip() != current_user.email:
+        new_email = data.email.lower().strip()
+        existing = db.query(User).filter(User.email == new_email, User.id != current_user.id).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This email address is already in use by another account"
+            )
+        current_user.email = new_email
+        updated_fields["email"] = current_user.email
+
+    if data.new_password:
+        if not data.current_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is required to change your password"
+            )
+        if not verify_password(data.current_password, current_user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password does not match"
+            )
+        current_user.hashed_password = get_password_hash(data.new_password)
+        updated_fields["password_changed"] = True
+
+    if updated_fields:
+        audit = AuditLog(
+            organization_id=current_org.id,
+            user_id=current_user.id,
+            action="ADMIN_PROFILE_UPDATED",
+            entity_type="user",
+            entity_id=current_user.id,
+            details=updated_fields
+        )
+        db.add(audit)
+        db.commit()
+        db.refresh(current_user)
+
+    return current_user
 
 @router.get("/organization", response_model=OrganizationResponse)
 def get_organization(current_org: Organization = Depends(get_current_org)):

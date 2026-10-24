@@ -1,11 +1,11 @@
 from typing import List, Optional, Any, Dict
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 class FieldValidationRules(BaseModel):
     min_length: Optional[int] = None
     max_length: Optional[int] = None
     pattern: Optional[str] = None
-    options: Optional[List[str]] = Field(default_factory=list, description="Dropdown choices if field_type is dropdown")
+    options: Optional[List[str]] = Field(default_factory=list, description="Dropdown or checkbox choices")
 
 class WorkflowFieldDefinition(BaseModel):
     id: str = Field(..., description="Stable unique identifier e.g. field_gst_certificate")
@@ -23,6 +23,48 @@ class WorkflowFieldDefinition(BaseModel):
     )
     max_file_size_mb: Optional[int] = Field(default=10)
     validation: Optional[FieldValidationRules] = None
+    options: Optional[List[str]] = Field(
+        default_factory=list,
+        description="List of selectable choices/options for dropdown or checkbox fields"
+    )
+
+    @model_validator(mode="after")
+    def sync_options(self):
+        opts = [str(o).strip() for o in (self.options or []) if str(o).strip()]
+        val_opts = [str(o).strip() for o in ((self.validation.options if self.validation else None) or []) if str(o).strip()]
+        combined = opts if opts else val_opts
+
+        # If options are empty for dropdown or checkbox fields, provide contextual defaults
+        if not combined and self.field_type in ("dropdown", "checkbox"):
+            lbl = (self.label or "").lower()
+            if self.field_type == "dropdown":
+                if any(w in lbl for w in ("structure", "type", "entity")):
+                    combined = ["Private Limited / Corporation", "LLC / LLP", "Partnership", "Sole Proprietorship"]
+                elif any(w in lbl for w in ("payment", "term", "invoice")):
+                    combined = ["Net 30", "Net 60", "Net 15", "Immediate / Advance"]
+                elif any(w in lbl for w in ("tax", "gst", "vat", "filing")):
+                    combined = ["Regular Registered", "Composition Scheme", "Exempt / Non-Taxable", "Overseas Entity"]
+                elif any(w in lbl for w in ("country", "nation")):
+                    combined = ["United States", "India", "United Kingdom", "Canada", "Australia", "Other"]
+                elif any(w in lbl for w in ("state", "province", "region")):
+                    combined = ["Region North", "Region South", "Region East", "Region West"]
+                else:
+                    combined = ["Option 1", "Option 2", "Option 3"]
+            elif self.field_type == "checkbox":
+                if any(w in lbl for w in ("service", "product", "sector", "category", "scope", "offering")):
+                    combined = ["Primary Consulting", "Technical Implementation", "Maintenance & Support", "Other Services"]
+                elif any(w in lbl for w in ("certif", "compliance", "standard", "audit", "security")):
+                    combined = ["ISO 9001 / Quality Management", "SOC 2 Type II Certified", "GDPR / Privacy Compliant", "Industry Safety Certified"]
+                else:
+                    combined = ["I certify that all provided details and documents are authentic and accurate"]
+
+        if combined:
+            self.options = combined
+            if not self.validation:
+                self.validation = FieldValidationRules(options=combined)
+            else:
+                self.validation.options = combined
+        return self
 
 class WorkflowSchemaDefinition(BaseModel):
     name: str = Field(..., description="Workflow title")

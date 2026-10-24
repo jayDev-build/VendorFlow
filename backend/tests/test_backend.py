@@ -433,5 +433,329 @@ def test_workflow_edit_draft_and_published_versioning(client):
     assert v2_data["current_version_number"] == 2  # Incremented to v2!
     assert len(v2_data["schema_definition"]["fields"]) == 2
 
+def test_admin_profile_editing(client):
+    # 1. Sign up a new user
+    signup_data = {
+        "email": "testadmin_edit@formgate.io",
+        "password": "Password123!",
+        "full_name": "Admin Before Edit",
+        "organization_name": "FormGate Test Org",
+        "business_profile": {"industry": "IT & Cloud"}
+    }
+    res = client.post("/api/v1/auth/signup", json=signup_data)
+    assert res.status_code == 201
+    token = res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 2. Update admin full_name and email
+    patch_res = client.patch("/api/v1/auth/me", json={
+        "full_name": "Admin After Edit",
+        "email": "testadmin_updated@formgate.io"
+    }, headers=headers)
+    assert patch_res.status_code == 200
+    user_data = patch_res.json()
+    assert user_data["full_name"] == "Admin After Edit"
+    assert user_data["email"] == "testadmin_updated@formgate.io"
+
+    # 3. Update password
+    pw_res = client.patch("/api/v1/auth/me", json={
+        "current_password": "Password123!",
+        "new_password": "NewSecretPassword123!"
+    }, headers=headers)
+    assert pw_res.status_code == 200
+
+    # 4. Verify login with new credentials succeeds
+    login_res = client.post("/api/v1/auth/login", json={
+        "email": "testadmin_updated@formgate.io",
+        "password": "NewSecretPassword123!"
+    })
+    assert login_res.status_code == 200
+    assert login_res.json()["user"]["full_name"] == "Admin After Edit"
+
+    # 5. Verify wrong current_password returns 400
+    fail_res = client.patch("/api/v1/auth/me", json={
+        "current_password": "WrongPassword!",
+        "new_password": "AnotherPassword123!"
+    }, headers=headers)
+    assert fail_res.status_code == 400
+
+def test_resubmission_and_rejection_link_generation(client):
+    # Register admin & org
+    signup_res = client.post("/api/v1/auth/signup", json={
+        "email": "link_test_admin@tenant-links.com",
+        "password": "Password123!",
+        "full_name": "Link Admin",
+        "organization_name": "Link Tenant"
+    })
+    assert signup_res.status_code == 201
+    headers = {"Authorization": f"Bearer {signup_res.json()['access_token']}"}
+
+    # Create workflow
+    create_wf = client.post("/api/v1/workflows", json={
+        "name": "Audit Resubmit Flow",
+        "vendor_category": "Logistics",
+        "description": "Workflow for testing resubmission links",
+        "schema_definition": {
+            "name": "Audit Resubmit Flow",
+            "vendor_category": "Logistics",
+            "fields": [
+                {
+                    "id": "field_doc_insurance",
+                    "label": "Insurance Certificate",
+                    "field_type": "file_upload",
+                    "required": True,
+                    "allowed_file_types": ["application/pdf"]
+                }
+            ],
+            "approval_required": True,
+            "reminder_rules": [30, 7]
+        },
+        "approval_required": True,
+        "reminder_rules": [30, 7]
+    }, headers=headers)
+    assert create_wf.status_code == 201
+    wf_id = create_wf.json()["id"]
+
+    # Publish workflow
+    client.post(f"/api/v1/workflows/{wf_id}/publish", headers=headers)
+
+    # Invite vendor
+    invite_res = client.post(f"/api/v1/workflows/{wf_id}/invitations", json={
+        "email": "driver@apexhaulage.com",
+        "vendor_name": "Apex Haulage LLC",
+        "vendor_category": "Logistics"
+    }, headers=headers)
+    assert invite_res.status_code == 200
+    initial_url = invite_res.json()["invitation_url"]
+    raw_token = initial_url.split("/vendor/onboard/")[-1]
+
+    # Vendor uploads document
+    upload_res = client.post(
+        f"/api/v1/public/invitations/{raw_token}/documents",
+        data={
+            "field_id": "field_doc_insurance",
+            "document_type": "Insurance Certificate"
+        },
+        files={"file": ("insurance.pdf", b"%PDF-1.4 sample content", "application/pdf")}
+    )
+    assert upload_res.status_code == 200
+    doc_id = upload_res.json()["document_id"]
+
+    # Submit onboarding
+    submit_res = client.post(f"/api/v1/public/invitations/{raw_token}/submit", json={
+        "form_responses": {}
+    })
+    assert submit_res.status_code == 200
+
+    # Verify initially submitted status is SUBMITTED
+    portal_res = client.get(f"/api/v1/public/invitations/{raw_token}")
+    assert portal_res.status_code == 200
+    assert portal_res.json()["is_submitted"] is True
+
+    # 1. Admin requests resubmission
+    resubmit_res = client.post(
+        f"/api/v1/documents/{doc_id}/request-resubmission",
+        json={"action": "REQUEST_RESUBMISSION", "reason": "Please provide the updated 2026 endorsement page."},
+        headers=headers
+    )
+    assert resubmit_res.status_code == 200
+    resubmit_data = resubmit_res.json()
+    assert resubmit_data["status"] == "RESUBMISSION_REQUESTED"
+    assert "resubmission_url" in resubmit_data
+    assert "/vendor/onboard/" in resubmit_data["resubmission_url"]
+
+    # Extract fresh resubmission token from returned URL
+    resub_token = resubmit_data["resubmission_url"].split("/vendor/onboard/")[-1]
+
+    # Vendor visits portal using new resubmission token
+    portal_res2 = client.get(f"/api/v1/public/invitations/{resub_token}")
+    assert portal_res2.status_code == 200
+    p2_data = portal_res2.json()
+    assert p2_data["is_submitted"] is False
+    assert p2_data["submission_status"] == "RESUBMISSION_REQUESTED"
+    assert len(p2_data["existing_documents"]) == 1
+    assert p2_data["existing_documents"][0]["status"] == "RESUBMISSION_REQUESTED"
+    assert p2_data["existing_documents"][0]["review_reason"] == "Please provide the updated 2026 endorsement page."
+
+    # 2. Test Document Rejection link generation as well
+    reject_res = client.post(
+        f"/api/v1/documents/{doc_id}/reject",
+        json={"action": "REJECT", "reason": "Document completely illegible."},
+        headers=headers
+    )
+    assert reject_res.status_code == 200
+    reject_data = reject_res.json()
+    assert reject_data["status"] == "REJECTED"
+    assert "resubmission_url" in reject_data
+    reject_token = reject_data["resubmission_url"].split("/vendor/onboard/")[-1]
+
+    # Vendor visits portal via reject token
+    portal_res3 = client.get(f"/api/v1/public/invitations/{reject_token}")
+    assert portal_res3.status_code == 200
+    p3_data = portal_res3.json()
+    assert p3_data["is_submitted"] is False
+    assert p3_data["submission_status"] == "RESUBMISSION_REQUESTED"
+    assert p3_data["existing_documents"][0]["status"] == "REJECTED"
+    assert p3_data["existing_documents"][0]["review_reason"] == "Document completely illegible."
+
+def test_resubmission_preserves_prior_approved_documents(client):
+    # Register admin & org
+    signup_res = client.post("/api/v1/auth/signup", json={
+        "email": "preserve_admin@tenant-preserve.com",
+        "password": "Password123!",
+        "full_name": "Preserve Admin",
+        "organization_name": "Preserve Tenant"
+    })
+    assert signup_res.status_code == 201
+    headers = {"Authorization": f"Bearer {signup_res.json()['access_token']}"}
+
+    # Create workflow with TWO document fields: Doc A (Insurance) and Doc B (Tax ID)
+    create_wf = client.post("/api/v1/workflows", json={
+        "name": "Dual Doc Workflow",
+        "vendor_category": "Logistics",
+        "description": "Workflow with 2 documents to test approval preservation",
+        "schema_definition": {
+            "name": "Dual Doc Workflow",
+            "vendor_category": "Logistics",
+            "fields": [
+                {
+                    "id": "field_doc_a",
+                    "label": "Document A (Insurance)",
+                    "field_type": "file_upload",
+                    "required": True,
+                    "allowed_file_types": ["application/pdf"]
+                },
+                {
+                    "id": "field_doc_b",
+                    "label": "Document B (Tax ID)",
+                    "field_type": "file_upload",
+                    "required": True,
+                    "allowed_file_types": ["application/pdf"]
+                }
+            ],
+            "approval_required": True,
+            "reminder_rules": [30, 7]
+        },
+        "approval_required": True,
+        "reminder_rules": [30, 7]
+    }, headers=headers)
+    assert create_wf.status_code == 201
+    wf_id = create_wf.json()["id"]
+
+    # Publish workflow
+    client.post(f"/api/v1/workflows/{wf_id}/publish", headers=headers)
+
+    # Invite vendor
+    invite_res = client.post(f"/api/v1/workflows/{wf_id}/invitations", json={
+        "email": "vendor@dualhaul.com",
+        "vendor_name": "Dual Haul Logistics",
+        "vendor_category": "Logistics"
+    }, headers=headers)
+    assert invite_res.status_code == 200
+    token1 = invite_res.json()["invitation_url"].split("/vendor/onboard/")[-1]
+
+    # Vendor uploads Doc A and Doc B
+    res_a = client.post(
+        f"/api/v1/public/invitations/{token1}/documents",
+        data={"field_id": "field_doc_a", "document_type": "Document A (Insurance)"},
+        files={"file": ("insurance_v1.pdf", b"%PDF-1.4 insurance file", "application/pdf")}
+    )
+    assert res_a.status_code == 200
+    doc_a_id = res_a.json()["document_id"]
+
+    res_b = client.post(
+        f"/api/v1/public/invitations/{token1}/documents",
+        data={"field_id": "field_doc_b", "document_type": "Document B (Tax ID)"},
+        files={"file": ("tax_id_v1.pdf", b"%PDF-1.4 tax id file", "application/pdf")}
+    )
+    assert res_b.status_code == 200
+    doc_b_id = res_b.json()["document_id"]
+
+    # Vendor submits onboarding initially
+    sub_res = client.post(f"/api/v1/public/invitations/{token1}/submit", json={"form_responses": {}})
+    assert sub_res.status_code == 200
+
+    # Both documents are initially UNDER_REVIEW
+    doc_a_check = client.get(f"/api/v1/documents/{doc_a_id}", headers=headers).json()
+    doc_b_check = client.get(f"/api/v1/documents/{doc_b_id}", headers=headers).json()
+    assert doc_a_check["status"] == "UNDER_REVIEW"
+    assert doc_b_check["status"] == "UNDER_REVIEW"
+
+    # Admin approves Doc A!
+    appr_a = client.post(f"/api/v1/documents/{doc_a_id}/approve", headers=headers)
+    assert appr_a.status_code == 200
+    assert appr_a.json()["status"] == "APPROVED"
+
+    # Admin requests resubmission for Doc B!
+    resub_b = client.post(
+        f"/api/v1/documents/{doc_b_id}/request-resubmission",
+        json={"action": "REQUEST_RESUBMISSION", "reason": "Tax ID is expired or unreadable."},
+        headers=headers
+    )
+    assert resub_b.status_code == 200
+    resub_url = resub_b.json()["resubmission_url"]
+    resub_token = resub_url.split("/vendor/onboard/")[-1]
+
+    # Vendor visits resubmission portal
+    portal_res = client.get(f"/api/v1/public/invitations/{resub_token}")
+    assert portal_res.status_code == 200
+    portal_data = portal_res.json()
+    assert portal_data["is_submitted"] is False
+    assert portal_data["submission_status"] == "RESUBMISSION_REQUESTED"
+
+    # Confirm existing documents on portal: Doc A is APPROVED, Doc B is RESUBMISSION_REQUESTED
+    docs_by_field = {d["field_id"]: d for d in portal_data["existing_documents"]}
+    assert docs_by_field["field_doc_a"]["status"] == "APPROVED"
+    assert docs_by_field["field_doc_b"]["status"] == "RESUBMISSION_REQUESTED"
+
+    # Vendor replaces ONLY Doc B (does NOT touch Doc A)
+    replace_b = client.post(
+        f"/api/v1/public/invitations/{resub_token}/documents",
+        data={"field_id": "field_doc_b", "document_type": "Document B (Tax ID)"},
+        files={"file": ("tax_id_v2_corrected.pdf", b"%PDF-1.4 updated tax id content", "application/pdf")}
+    )
+    assert replace_b.status_code == 200
+    # Status MUST NOT change to SUBMITTED upon file upload - it remains RESUBMISSION_REQUESTED until submit is hit!
+    assert replace_b.json()["status"] == "RESUBMISSION_REQUESTED"
+    assert replace_b.json()["has_replacement"] is True
+
+    # Visiting portal before submit MUST still show status as RESUBMISSION_REQUESTED with replacement attached!
+    portal_before_submit = client.get(f"/api/v1/public/invitations/{resub_token}").json()
+    docs_before_submit = {d["field_id"]: d for d in portal_before_submit["existing_documents"]}
+    assert docs_before_submit["field_doc_b"]["status"] == "RESUBMISSION_REQUESTED"
+    assert docs_before_submit["field_doc_b"]["has_replacement"] is True
+
+    # Vendor resubmits onboarding (hits Submit)
+    resub_submit = client.post(f"/api/v1/public/invitations/{resub_token}/submit", json={"form_responses": {}})
+    assert resub_submit.status_code == 200
+
+    # CRITICAL CHECK: Doc A MUST STILL BE APPROVED!
+    doc_a_after = client.get(f"/api/v1/documents/{doc_a_id}", headers=headers).json()
+    assert doc_a_after["status"] == "APPROVED", f"Expected APPROVED but got {doc_a_after['status']}"
+
+    # Doc B is now UNDER_REVIEW
+    doc_b_after = client.get(f"/api/v1/documents/{doc_b_id}", headers=headers).json()
+    assert doc_b_after["status"] == "UNDER_REVIEW"
+
+    # Check dashboard stats: pending_reviews should contain ONLY Doc B! Doc A should NOT be in pending reviews!
+    dashboard_res = client.get("/api/v1/dashboard/stats", headers=headers)
+    assert dashboard_res.status_code == 200
+    pending_ids = [d["id"] for d in dashboard_res.json()["pending_reviews"]]
+    assert doc_b_id in pending_ids
+    assert doc_a_id not in pending_ids, "Prior approved Doc A should not appear in dashboard pending reviews!"
+
+    # Filter documents by UNDER_REVIEW queue: only Doc B appears!
+    review_queue = client.get("/api/v1/documents?status=UNDER_REVIEW", headers=headers).json()
+    review_queue_ids = [d["id"] for d in review_queue]
+    assert doc_b_id in review_queue_ids
+    assert doc_a_id not in review_queue_ids, "Prior approved Doc A should not appear in UNDER_REVIEW queue!"
+
+    # Now Admin approves Doc B
+    appr_b = client.post(f"/api/v1/documents/{doc_b_id}/approve", headers=headers)
+    assert appr_b.status_code == 200
+    assert appr_b.json()["vendor_status"] == "APPROVED"
+
+
+
 
 

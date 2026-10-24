@@ -43,9 +43,9 @@ export default function LoginPage() {
           <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30 mb-3">
             <Sparkles className="w-6 h-6" />
           </div>
-          <h1 className="text-xl font-bold text-white tracking-tight">Sign in to VendorFlow</h1>
+          <h1 className="text-xl font-bold text-white tracking-tight">Sign in to FormGate</h1>
           <p className="text-xs text-slate-400 mt-1">
-            Enterprise AI Vendor Onboarding & Document Lifecycle Platform
+            Enterprise AI Compliance Onboarding & Document Lifecycle Platform
           </p>
         </div>
 

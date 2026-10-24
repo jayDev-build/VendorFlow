@@ -22,7 +22,8 @@ import {
   FileText,
   GitBranch,
   RefreshCw,
-  Share2
+  Share2,
+  X
 } from 'lucide-react';
 import { TopNav } from '@/components/TopNav';
 import { WorkflowPreviewModal } from '@/components/WorkflowPreviewModal';
@@ -577,6 +578,155 @@ function EditWorkflowContent() {
                       </button>
                     </div>
                   </div>
+
+                  {/* Options Editor (for dropdown & checkbox fields) */}
+                  {(field.field_type === 'dropdown' || field.field_type === 'checkbox') && (() => {
+                    const currentOpts = (field.options && field.options.length > 0)
+                      ? field.options
+                      : (field.validation?.options && field.validation.options.length > 0)
+                      ? field.validation.options
+                      : (field.field_type === 'dropdown'
+                          ? ['Option 1', 'Option 2']
+                          : ['I confirm and agree to this requirement']);
+
+                    const setOptions = (newOpts: string[]) => {
+                      updateField(idx, {
+                        options: newOpts,
+                        validation: {
+                          ...field.validation,
+                          options: newOpts
+                        }
+                      });
+                    };
+
+                    const isDropdown = field.field_type === 'dropdown';
+
+                    return (
+                      <div className="pt-3 border-t border-slate-100 space-y-2.5 bg-slate-50/50 -mx-4 px-4 py-3 rounded-b-lg">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                              <span>{isDropdown ? 'Dropdown Choices / Selectable Options' : 'Checkbox Choices / Agreement Options'}</span>
+                              <span className="text-[10px] font-semibold text-slate-500 lowercase">
+                                ({currentOpts.length} {currentOpts.length === 1 ? 'choice' : 'choices'})
+                              </span>
+                            </span>
+                            <p className="text-[10px] text-slate-500 font-normal">
+                              {isDropdown
+                                ? 'Vendors select one option from this list in the dropdown menu.'
+                                : '1 choice creates a single-confirmation checkbox; 2+ choices create a multi-select checklist.'}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {/* Quick Presets */}
+                            <div className="hidden sm:flex items-center gap-1 text-[10px]">
+                              <span className="text-slate-400 font-medium">Presets:</span>
+                              {isDropdown ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => setOptions(['Private Limited / Corporation', 'LLC / LLP', 'Partnership', 'Sole Proprietorship'])}
+                                    className="px-1.5 py-0.5 rounded bg-white hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 border border-slate-200 transition-colors cursor-pointer"
+                                  >
+                                    Entity
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setOptions(['Net 30 Days', 'Net 60 Days', 'Net 15 Days', 'Immediate / Advance'])}
+                                    className="px-1.5 py-0.5 rounded bg-white hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 border border-slate-200 transition-colors cursor-pointer"
+                                  >
+                                    Terms
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setOptions(['Yes', 'No'])}
+                                    className="px-1.5 py-0.5 rounded bg-white hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 border border-slate-200 transition-colors cursor-pointer"
+                                  >
+                                    Yes/No
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => setOptions(['I certify that all submitted business details and documents are authentic and accurate.'])}
+                                    className="px-1.5 py-0.5 rounded bg-white hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 border border-slate-200 transition-colors cursor-pointer"
+                                  >
+                                    Single Agreement
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setOptions(['ISO 9001 Quality Management', 'SOC 2 Type II Certified', 'GDPR / Privacy Compliant'])}
+                                    className="px-1.5 py-0.5 rounded bg-white hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 border border-slate-200 transition-colors cursor-pointer"
+                                  >
+                                    Compliance
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setOptions(['Primary Services', 'Technical Consulting', 'Maintenance & SLA Support'])}
+                                    className="px-1.5 py-0.5 rounded bg-white hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 border border-slate-200 transition-colors cursor-pointer"
+                                  >
+                                    Multi-Scope
+                                  </button>
+                                </>
+                              )}
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newOpts = [...currentOpts, isDropdown ? `Option ${currentOpts.length + 1}` : `Choice ${currentOpts.length + 1}`];
+                                setOptions(newOpts);
+                              }}
+                              className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md text-[11px] font-bold flex items-center gap-1 border border-indigo-200 transition-colors cursor-pointer"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Add Choice</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* List of option chips / editors */}
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          {currentOpts.map((opt, optIdx) => (
+                            <div
+                              key={optIdx}
+                              className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1 shadow-2xs group hover:border-indigo-400 transition-colors"
+                            >
+                              <span className="text-[10px] font-bold text-slate-400 select-none">
+                                #{optIdx + 1}
+                              </span>
+                              <input
+                                type="text"
+                                value={opt}
+                                onChange={(e) => {
+                                  const updated = [...currentOpts];
+                                  updated[optIdx] = e.target.value;
+                                  setOptions(updated);
+                                }}
+                                className={`text-xs text-slate-900 bg-transparent outline-none font-medium ${
+                                  opt.length > 25 ? 'w-64 sm:w-80' : 'w-32 sm:w-44'
+                                }`}
+                                placeholder={isDropdown ? 'Choice text...' : 'Agreement or checklist item...'}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = currentOpts.filter((_, i) => i !== optIdx);
+                                  setOptions(updated);
+                                }}
+                                className="text-slate-400 hover:text-rose-600 p-0.5 cursor-pointer rounded transition-colors"
+                                title="Delete option"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Help text input */}
                   <div>

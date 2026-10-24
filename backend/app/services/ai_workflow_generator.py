@@ -9,7 +9,7 @@ from app.schemas.workflow import (
     FieldValidationRules,
 )
 
-logger = logging.getLogger("vendorflow.ai_generator")
+logger = logging.getLogger("formgate.ai_generator")
 
 SYSTEM_PROMPT = """You are an expert Enterprise Compliance & Vendor Management Systems Architect.
 Your task is to analyze plain-English vendor onboarding requirements and generate a structured, highly usable onboarding workflow definition according to the provided JSON schema.
@@ -21,13 +21,17 @@ Guidelines:
 4. Expiry Tracking:
    - Enable 'track_expiry=True' ONLY when explicitly requested (e.g., 'Insurance must have an expiry date') or standard perishable documents like Insurance, Trade Licenses, or Work Permits.
    - For static identity/tax documents (e.g. PAN card, Business Registration), set 'track_expiry=False' unless requested.
-5. Parse approval rules (e.g. 'requires administrator approval' -> approval_required=True).
-6. Parse reminder intervals (e.g. '30 days before expiry' -> reminder_rules=[30, 7, 1]).
-7. Assumptions & Warnings:
+5. Dropdown and Checkbox Fields (CRITICAL):
+   - Whenever you output a 'dropdown' or 'checkbox' field, you MUST generate realistic, comprehensive selectable options in 'options' (at least 2-6 realistic options, e.g. for Corporate Structure, Payment Terms, Tax Registration Category, or Service Scope).
+   - For single-confirmation checkboxes (e.g., Terms & Declarations), provide a clear declaration string in 'options' (e.g. ['I certify that all submitted business details and documents are genuine and accurate']).
+   - Always populate 'options' and 'validation.options' with these choices. NEVER leave 'options' empty for dropdown or checkbox fields.
+6. Parse approval rules (e.g. 'requires administrator approval' -> approval_required=True).
+7. Parse reminder intervals (e.g. '30 days before expiry' -> reminder_rules=[30, 7, 1]).
+8. Assumptions & Warnings:
    - List any assumptions you made (e.g., assumed file types PDF/PNG/JPEG up to 10MB).
    - List compliance warnings (e.g., reminders require valid expiry dates input by vendor during submission).
    - Never assume an uploaded file is legally valid or automatically verified.
-8. Output MUST strictly conform to the WorkflowSchemaDefinition schema.
+9. Output MUST strictly conform to the WorkflowSchemaDefinition schema.
 """
 
 def generate_deterministic_fallback(
@@ -72,8 +76,22 @@ def generate_deterministic_fallback(
             help_text="Select your registered corporate structure.",
             document_category=None,
             track_expiry=False,
+            options=["Private Limited / Corporation", "LLC / LLP", "Partnership", "Sole Proprietorship"],
             validation=FieldValidationRules(
                 options=["Private Limited / Corporation", "LLC / LLP", "Partnership", "Sole Proprietorship"]
+            )
+        ),
+        WorkflowFieldDefinition(
+            id="field_compliance_declaration",
+            label="Compliance & Terms Declaration",
+            field_type="checkbox",
+            required=True,
+            help_text="Confirmation of compliance with regulatory standards, data privacy, and organizational policies.",
+            document_category=None,
+            track_expiry=False,
+            options=["I certify that all submitted business details, tax records, and certificates are authentic and accurate."],
+            validation=FieldValidationRules(
+                options=["I certify that all submitted business details, tax records, and certificates are authentic and accurate."]
             )
         ),
         WorkflowFieldDefinition(
@@ -316,6 +334,16 @@ Respond with pure JSON only. Do not include markdown codeblocks or commentary.
                             f["track_expiry"] = False
                         if f.get("required") is None:
                             f["required"] = True
+                        if f.get("field_type") in ("dropdown", "checkbox"):
+                            val_dict = f.get("validation") if isinstance(f.get("validation"), dict) else {}
+                            raw_opts = f.get("options") or val_dict.get("options") or []
+                            clean_opts = [str(o).strip() for o in raw_opts if str(o).strip()]
+                            if clean_opts:
+                                f["options"] = clean_opts
+                                if "validation" not in f or not isinstance(f["validation"], dict):
+                                    f["validation"] = {"options": clean_opts}
+                                else:
+                                    f["validation"]["options"] = clean_opts
 
         parsed = WorkflowSchemaDefinition.model_validate(parsed_data)
         if workflow_name and not parsed.name:
@@ -380,6 +408,22 @@ def _generate_with_gemini(
             text = text[:-3]
         text = text.strip()
         data = json.loads(text)
+        if isinstance(data, dict) and "fields" in data and isinstance(data["fields"], list):
+            for idx, f in enumerate(data["fields"]):
+                if isinstance(f, dict):
+                    if not f.get("id"):
+                        f["id"] = f"field_{idx}_{abs(hash(f.get('label', 'doc')))}"
+                    if f.get("field_type") in ("dropdown", "checkbox"):
+                        val_dict = f.get("validation") if isinstance(f.get("validation"), dict) else {}
+                        raw_opts = f.get("options") or val_dict.get("options") or []
+                        clean_opts = [str(o).strip() for o in raw_opts if str(o).strip()]
+                        if clean_opts:
+                            f["options"] = clean_opts
+                            if "validation" not in f or not isinstance(f["validation"], dict):
+                                f["validation"] = {"options": clean_opts}
+                            else:
+                                f["validation"]["options"] = clean_opts
+
         parsed = WorkflowSchemaDefinition.model_validate(data)
         if workflow_name and not parsed.name:
             parsed.name = workflow_name

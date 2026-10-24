@@ -22,7 +22,8 @@ import {
   X,
   Edit3,
   Download,
-  ExternalLink
+  ExternalLink,
+  AlertTriangle
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { PublicInvitationData, WorkflowField } from '@/lib/types';
@@ -35,6 +36,9 @@ interface UploadedFileRecord {
   file_size?: number;
   view_url?: string;
   download_url?: string;
+  status?: string;
+  review_reason?: string;
+  has_replacement?: boolean;
 }
 
 interface PreviewModalState {
@@ -100,7 +104,10 @@ function VendorOnboardingPortalContent() {
               mime_type: d.mime_type,
               file_size: d.file_size,
               view_url: d.view_url,
-              download_url: d.download_url
+              download_url: d.download_url,
+              status: d.status,
+              review_reason: d.review_reason,
+              has_replacement: Boolean(d.has_replacement)
             };
             if (d.expiry_date) {
               expMap[d.field_id] = d.expiry_date.split('T')[0];
@@ -126,18 +133,29 @@ function VendorOnboardingPortalContent() {
       const expiry = documentExpiries[field.id];
       const res = await api.uploadPublicDocument(token, file, field.id, field.label, expiry);
 
-      setUploadedFiles((prev) => ({
-        ...prev,
-        [field.id]: {
-          id: res.document_id,
-          filename: res.original_filename,
-          expiry: res.expiry_date,
-          mime_type: res.mime_type || file.type,
-          file_size: res.file_size || file.size,
-          view_url: res.view_url,
-          download_url: res.download_url
-        }
-      }));
+      setUploadedFiles((prev) => {
+        const currentRecord = prev[field.id];
+        // Do not change the status on form for resubmitted document until submit is hit!
+        const prevStatus = currentRecord?.status;
+        const prevReason = currentRecord?.review_reason;
+        const isResubmitDoc = prevStatus === 'RESUBMISSION_REQUESTED' || prevStatus === 'REJECTED';
+
+        return {
+          ...prev,
+          [field.id]: {
+            id: res.document_id,
+            filename: res.original_filename,
+            expiry: res.expiry_date,
+            mime_type: res.mime_type || file.type,
+            file_size: res.file_size || file.size,
+            view_url: res.view_url,
+            download_url: res.download_url,
+            status: isResubmitDoc ? prevStatus : (res.status || 'SUBMITTED'),
+            review_reason: isResubmitDoc ? prevReason : undefined,
+            has_replacement: true
+          }
+        };
+      });
     } catch (err: any) {
       setErrorMsg(err.message || `Failed to upload ${field.label}`);
     } finally {
@@ -194,10 +212,41 @@ function VendorOnboardingPortalContent() {
       return;
     }
 
+    // Check flagged documents that require replacement
+    const unreplacedDocs = fields.filter((f) => {
+      if (f.field_type !== 'file_upload') return false;
+      const uploaded = uploadedFiles[f.id];
+      if (!uploaded) return f.required;
+      const isFlagged = uploaded.status === 'REJECTED' || uploaded.status === 'RESUBMISSION_REQUESTED';
+      return isFlagged && !uploaded.has_replacement;
+    });
+    if (unreplacedDocs.length > 0) {
+      setErrorMsg(`Please upload replacement files for the flagged documents before submitting: ${unreplacedDocs.map((d) => d.label).join(', ')}`);
+      return;
+    }
+
     // Check required certificate expiries
     const missingExpiries = fields.filter((f) => f.field_type === 'file_upload' && f.track_expiry && f.required && !documentExpiries[f.id]);
     if (missingExpiries.length > 0) {
       setErrorMsg(`Please specify certificate expiration dates for: ${missingExpiries.map((d) => d.label).join(', ')}`);
+      return;
+    }
+
+    // Check required non-file questions (dropdowns, checkboxes, short/long text, etc.)
+    const missingQuestions = fields.filter((f) => {
+      if (f.field_type === 'file_upload' || !f.required) return false;
+      const val = formResponses[f.id];
+      if (f.field_type === 'checkbox') {
+        const opts = (f.options && f.options.length > 0) ? f.options : (f.validation?.options || []);
+        if (opts.length > 1) {
+          return !Array.isArray(val) || val.length === 0;
+        }
+        return !val;
+      }
+      return val === undefined || val === null || String(val).trim() === '';
+    });
+    if (missingQuestions.length > 0) {
+      setErrorMsg(`Please complete all required questions: ${missingQuestions.map((f) => f.label).join(', ')}`);
       return;
     }
 
@@ -311,7 +360,11 @@ function VendorOnboardingPortalContent() {
                                 {label}
                               </div>
                               <div className="text-xs font-semibold text-slate-900 mt-0.5 break-words">
-                                {typeof value === 'boolean' ? (value ? 'Confirmed' : 'No') : String(value || '—')}
+                                {Array.isArray(value)
+                                  ? (value.length > 0 ? value.join(', ') : 'None')
+                                  : typeof value === 'boolean'
+                                  ? (value ? 'Confirmed' : 'No')
+                                  : String(value || '—')}
                               </div>
                             </div>
                           );
@@ -397,7 +450,7 @@ function VendorOnboardingPortalContent() {
           <div className="text-center pt-4 space-y-1 text-xs text-slate-500">
             <div className="flex items-center justify-center gap-1 font-medium text-slate-600">
               <ShieldCheck className="w-4 h-4 text-[#673ab7]" />
-              <span>Secured by VendorFlow Enterprise Onboarding</span>
+              <span>Secured by FormGate Enterprise Onboarding</span>
             </div>
           </div>
         </div>
@@ -493,6 +546,32 @@ function VendorOnboardingPortalContent() {
           </div>
         )}
 
+        {/* Resubmission / Correction Required Notice Banner */}
+        {data?.submission_status === 'RESUBMISSION_REQUESTED' && (
+          <div className="bg-amber-50/90 border-l-4 border-l-amber-500 border border-amber-200 rounded-lg p-5 shadow-2xs">
+            <div className="flex items-start gap-3.5">
+              <div className="w-9 h-9 rounded-lg bg-amber-500/15 border border-amber-300 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-amber-700" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-sm font-bold text-amber-950">
+                    Action Required: Resubmission or Document Updates Requested
+                  </h3>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-200/90 text-amber-900 uppercase tracking-wider border border-amber-300">
+                    Needs Replacement
+                  </span>
+                </div>
+                <p className="text-xs text-amber-900 leading-relaxed font-normal">
+                  Your reviewer has requested updates or replacement documents for your onboarding submission. 
+                  The flagged documents requiring replacement are highlighted with reviewer notes below. 
+                  Please upload the required files and click <strong>Submit Onboarding Application</strong> to complete your update.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* =========================================================================
             QUESTION CARDS CONTAINER
             ========================================================================= */}
@@ -502,6 +581,9 @@ function VendorOnboardingPortalContent() {
             const isUploadingThis = uploadingFieldId === field.id;
             const isDeletingThis = deletingFieldId === field.id;
             const isActive = activeFieldId === field.id;
+            const isFlagged = Boolean(
+              isUploaded && (isUploaded.status === 'RESUBMISSION_REQUESTED' || isUploaded.status === 'REJECTED')
+            );
 
             const isImg = isUploaded && (
               isUploaded.mime_type?.startsWith('image/') ||
@@ -519,7 +601,9 @@ function VendorOnboardingPortalContent() {
                 key={field.id}
                 onClick={() => setActiveFieldId(field.id)}
                 className={`bg-white rounded-lg p-6 shadow-2xs border transition-all ${
-                  isActive
+                  isFlagged
+                    ? 'border-amber-400 bg-amber-50/15 border-l-[6px] border-l-amber-500 ring-2 ring-amber-400/20'
+                    : isActive
                     ? 'border-slate-300 border-l-[6px] border-l-[#673ab7]'
                     : 'border-slate-200/90 hover:border-slate-300'
                 }`}
@@ -556,6 +640,49 @@ function VendorOnboardingPortalContent() {
 
                     {isUploaded ? (
                       <div className="space-y-3">
+                        {/* Reviewer Notice Box for Flagged Document */}
+                        {isFlagged && (
+                          <div className="p-3.5 rounded-lg bg-amber-50/90 border border-amber-300 text-xs text-amber-950 flex items-start gap-2.5 shadow-2xs">
+                            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-amber-950">
+                                  {isUploaded.status === 'REJECTED' ? 'Document Rejected' : 'Resubmission Requested'}
+                                </span>
+                                {isUploaded.has_replacement ? (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded flex items-center gap-1">
+                                    <Check className="w-3 h-3 text-emerald-600" />
+                                    <span>Replacement Attached (Pending Submit)</span>
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-amber-200 text-amber-900 rounded">
+                                    Reviewer Feedback
+                                  </span>
+                                )}
+                              </div>
+                              {isUploaded.review_reason ? (
+                                <p className="text-amber-900 leading-relaxed font-normal">
+                                  <span className="font-medium text-amber-950">Reason provided:</span> &ldquo;{isUploaded.review_reason}&rdquo;
+                                </p>
+                              ) : (
+                                <p className="text-amber-800">
+                                  Please upload an updated or corrected replacement file for review.
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Approved Badge notice */}
+                        {isUploaded.status === 'APPROVED' && (
+                          <div className="p-3 rounded-lg bg-emerald-50/90 border border-emerald-300 text-xs text-emerald-950 flex items-center gap-2.5 shadow-2xs">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <span className="font-medium">
+                              This document has already been verified and approved by your compliance reviewer. No changes are required.
+                            </span>
+                          </div>
+                        )}
+
                         {/* Image Thumbnail Preview directly on question card */}
                         {isImg && viewUrl && (
                           <div className="relative group w-36 h-36 rounded-lg overflow-hidden border border-slate-300 bg-slate-100 shadow-2xs">
@@ -583,9 +710,24 @@ function VendorOnboardingPortalContent() {
                           <span className="truncate max-w-[220px] font-medium text-slate-900">
                             {isUploaded.filename}
                           </span>
-                          <span className="text-[11px] text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-300">
-                            Uploaded
-                          </span>
+                          {isUploaded.status === 'REJECTED' ? (
+                            <span className="text-[11px] text-rose-800 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-300">
+                              {isUploaded.has_replacement ? 'Replacement Attached' : 'Rejected'}
+                            </span>
+                          ) : isUploaded.status === 'RESUBMISSION_REQUESTED' ? (
+                            <span className="text-[11px] text-amber-900 font-bold bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+                              {isUploaded.has_replacement ? 'Replacement Attached' : 'Needs Replacement'}
+                            </span>
+                          ) : isUploaded.status === 'APPROVED' ? (
+                            <span className="text-[11px] text-emerald-800 font-bold bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-700" />
+                              <span>Approved</span>
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-300">
+                              Uploaded
+                            </span>
+                          )}
 
                           <div className="flex items-center gap-3 ml-auto">
                             {/* View / Preview button */}
@@ -601,8 +743,13 @@ function VendorOnboardingPortalContent() {
                             )}
 
                             {/* Replace Action */}
-                            <label className="text-xs text-slate-600 hover:text-slate-900 font-semibold cursor-pointer">
-                              <span>Replace</span>
+                            <label className={`text-xs font-semibold cursor-pointer flex items-center gap-1.5 ${
+                              isFlagged
+                                ? 'bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1 rounded shadow-2xs transition-colors'
+                                : 'text-slate-600 hover:text-slate-900'
+                            }`}>
+                              <RefreshCw className="w-3.5 h-3.5" />
+                              <span>{isFlagged ? 'Upload Replacement' : 'Replace'}</span>
                               <input
                                 type="file"
                                 accept={field.allowed_file_types?.join(',') || 'application/pdf,image/png,image/jpeg'}
@@ -705,35 +852,42 @@ function VendorOnboardingPortalContent() {
                       </div>
                     )}
                   </div>
-                ) : field.field_type === 'dropdown' ? (
-                  <div className="pt-1 flex items-center gap-2">
-                    <select
-                      required={field.required}
-                      value={formResponses[field.id] || ''}
-                      onFocus={() => setActiveFieldId(field.id)}
-                      onChange={(e) =>
-                        setFormResponses({ ...formResponses, [field.id]: e.target.value })
-                      }
-                      className="min-w-[220px] max-w-full text-sm px-3 py-2 rounded-md border border-slate-300 bg-white text-slate-900 focus:outline-hidden focus:border-2 focus:border-[#673ab7] font-normal"
-                    >
-                      <option value="">Choose</option>
-                      {field.validation?.options?.map((opt, i) => (
-                        <option key={i} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                    {formResponses[field.id] && (
-                      <button
-                        type="button"
-                        onClick={() => setFormResponses({ ...formResponses, [field.id]: '' })}
-                        className="text-xs text-slate-500 hover:text-slate-800 underline"
+                ) : field.field_type === 'dropdown' ? (() => {
+                  const opts = (field.options && field.options.length > 0)
+                    ? field.options
+                    : (field.validation?.options && field.validation.options.length > 0)
+                    ? field.validation.options
+                    : [];
+                  return (
+                    <div className="pt-1 flex items-center gap-2">
+                      <select
+                        required={field.required}
+                        value={formResponses[field.id] || ''}
+                        onFocus={() => setActiveFieldId(field.id)}
+                        onChange={(e) =>
+                          setFormResponses({ ...formResponses, [field.id]: e.target.value })
+                        }
+                        className="min-w-[220px] max-w-full text-sm px-3 py-2 rounded-md border border-slate-300 bg-white text-slate-900 focus:outline-hidden focus:border-2 focus:border-[#673ab7] font-normal"
                       >
-                        Clear selection
-                      </button>
-                    )}
-                  </div>
-                ) : field.field_type === 'long_text' ? (
+                        <option value="">Choose</option>
+                        {opts.map((opt, i) => (
+                          <option key={i} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                      {formResponses[field.id] && (
+                        <button
+                          type="button"
+                          onClick={() => setFormResponses({ ...formResponses, [field.id]: '' })}
+                          className="text-xs text-slate-500 hover:text-slate-800 underline cursor-pointer"
+                        >
+                          Clear selection
+                        </button>
+                      )}
+                    </div>
+                  );
+                })() : field.field_type === 'long_text' ? (
                   <div className="pt-1 relative">
                     <textarea
                       required={field.required}
@@ -757,22 +911,84 @@ function VendorOnboardingPortalContent() {
                       </button>
                     )}
                   </div>
-                ) : field.field_type === 'checkbox' ? (
-                  <div className="pt-2">
-                    <label className="flex items-center gap-3 cursor-pointer text-sm text-slate-800 font-normal">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(formResponses[field.id])}
-                        onFocus={() => setActiveFieldId(field.id)}
-                        onChange={(e) =>
-                          setFormResponses({ ...formResponses, [field.id]: e.target.checked })
-                        }
-                        className="w-4 h-4 rounded text-[#673ab7] focus:ring-[#673ab7] border-slate-400"
-                      />
-                      <span>I confirm and agree to this requirement</span>
-                    </label>
-                  </div>
-                ) : field.field_type === 'date' ? (
+                ) : field.field_type === 'checkbox' ? (() => {
+                  const opts = (field.options && field.options.length > 0)
+                    ? field.options
+                    : (field.validation?.options && field.validation.options.length > 0)
+                    ? field.validation.options
+                    : [];
+
+                  if (opts.length > 1) {
+                    // Multi-select checklist
+                    const selected: string[] = Array.isArray(formResponses[field.id])
+                      ? formResponses[field.id]
+                      : formResponses[field.id]
+                      ? [String(formResponses[field.id])]
+                      : [];
+
+                    const toggleOption = (opt: string) => {
+                      const next = selected.includes(opt)
+                        ? selected.filter((s) => s !== opt)
+                        : [...selected, opt];
+                      setFormResponses({ ...formResponses, [field.id]: next });
+                    };
+
+                    return (
+                      <div className="pt-2 space-y-2.5">
+                        {opts.map((opt, i) => {
+                          const isChecked = selected.includes(opt);
+                          return (
+                            <label
+                              key={i}
+                              className="flex items-start gap-3 cursor-pointer text-sm text-slate-800 font-normal hover:text-slate-950 transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onFocus={() => setActiveFieldId(field.id)}
+                                onChange={() => toggleOption(opt)}
+                                className="w-4 h-4 mt-0.5 rounded text-[#673ab7] focus:ring-[#673ab7] border-slate-400 cursor-pointer"
+                              />
+                              <span className="leading-snug">{opt}</span>
+                            </label>
+                          );
+                        })}
+                        {selected.length > 0 && (
+                          <div className="pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setFormResponses({ ...formResponses, [field.id]: [] })}
+                              className="text-xs text-slate-500 hover:text-slate-800 underline cursor-pointer"
+                            >
+                              Clear selection
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  // Single agreement checkbox
+                  const labelText = opts.length === 1 ? opts[0] : (field.help_text || 'I confirm and agree to this requirement');
+                  const isChecked = Boolean(formResponses[field.id]);
+
+                  return (
+                    <div className="pt-2">
+                      <label className="flex items-start gap-3 cursor-pointer text-sm text-slate-800 font-normal hover:text-slate-950 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onFocus={() => setActiveFieldId(field.id)}
+                          onChange={(e) =>
+                            setFormResponses({ ...formResponses, [field.id]: e.target.checked })
+                          }
+                          className="w-4 h-4 mt-0.5 rounded text-[#673ab7] focus:ring-[#673ab7] border-slate-400 cursor-pointer"
+                        />
+                        <span className="leading-snug">{labelText}</span>
+                      </label>
+                    </div>
+                  );
+                })() : field.field_type === 'date' ? (
                   <div className="pt-1 flex items-center gap-2">
                     <input
                       type="date"
@@ -871,7 +1087,7 @@ function VendorOnboardingPortalContent() {
         <div className="text-center pt-8 pb-12 space-y-1 text-xs text-slate-500">
           <div className="flex items-center justify-center gap-1.5 font-medium text-slate-600">
             <ShieldCheck className="w-4 h-4 text-[#673ab7]" />
-            <span>Secured by VendorFlow Enterprise Onboarding</span>
+            <span>Secured by FormGate Enterprise Onboarding</span>
           </div>
           <p className="text-[11px] text-slate-400">
             This form is encrypted with 256-bit TLS security and compliant with enterprise vendor verification policies.

@@ -59,7 +59,7 @@ export const Sidebar: React.FC = () => {
           </div>
           <div>
             <div className="font-semibold text-white tracking-tight flex items-center gap-1.5 text-base">
-              VendorFlow
+              FormGate
               <span className="text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30">AI</span>
             </div>
             <div className="text-xs text-slate-300 font-medium truncate max-w-[140px]">
@@ -124,7 +124,7 @@ export const Sidebar: React.FC = () => {
                 {user?.full_name || 'Administrator'}
               </div>
               <div className="text-[11px] text-slate-300 truncate max-w-[120px]">
-                {user?.email || 'admin@vendorflow.io'}
+                {user?.email || 'admin@formgate.io'}
               </div>
             </div>
           </div>
@@ -148,7 +148,7 @@ export const Sidebar: React.FC = () => {
           <div className="w-7 h-7 rounded bg-indigo-600 flex items-center justify-center text-white">
             <Sparkles className="w-4 h-4" />
           </div>
-          <span>VendorFlow</span>
+          <span>FormGate</span>
         </Link>
         <button
           onClick={() => setMobileOpen(true)}

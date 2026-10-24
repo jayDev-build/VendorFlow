@@ -8,7 +8,7 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 DEFAULT_DB_FILE = os.path.join(ROOT_DIR, "vendorflow.db").replace("\\", "/")
 
 class Settings(BaseSettings):
-    APP_NAME: str = "VendorFlow"
+    APP_NAME: str = "FormGate"
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
 
@@ -54,7 +54,7 @@ class Settings(BaseSettings):
 
     # Email Delivery (Resend API or Standard SMTP / Gmail / Outlook)
     RESEND_API_KEY: str = ""
-    SENDER_EMAIL: str = "onboarding@vendorflow.io"
+    SENDER_EMAIL: str = "onboarding@formgate.io"
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587
     SMTP_USER: str = ""

@@ -469,7 +469,7 @@ export const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
               </div>
             </div>
             <p className="text-[11px] text-slate-500 font-medium">
-              If supplied, VendorFlow automatically monitors renewal milestones at 30, 7, and 1 days prior to expiry.
+              If supplied, FormGate automatically monitors renewal milestones at 30, 7, and 1 days prior to expiry.
             </p>
           </div>
 
