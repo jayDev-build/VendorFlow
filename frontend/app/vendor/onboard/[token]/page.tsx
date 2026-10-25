@@ -527,7 +527,7 @@ function VendorOnboardingPortalContent() {
                 <span>
                   Submitting to: <strong className="text-slate-900">{data?.organization_name}</strong>
                 </span>
-                {data?.email && (
+                {data?.email && !data.email.endsWith('.local') && (
                   <span className="text-slate-500 font-normal">({data.email})</span>
                 )}
               </div>

@@ -231,12 +231,12 @@ class NotificationService:
         subject = f"{urgency}Document Expiration Notice: {document.document_type} expires in {days_remaining} days"
         body = (
             f"Hello {vendor.name},\n\n"
-            f"This is an automated reminder regarding your document '{document.document_type}' registered with VendorFlow.\n"
+            f"This is an automated reminder regarding your document '{document.document_type}' registered with FormGate.\n"
             f"Document: {document.document_type}\n"
             f"Expiration Date: {date_str}\n"
             f"Days Remaining: {days_remaining} days\n\n"
             f"Please coordinate with your compliance manager to submit an updated certificate before expiration to avoid onboarding or vendor status interruptions.\n\n"
-            f"Thank you,\nVendorFlow Compliance Team"
+            f"Thank you,\nFormGate Compliance Team"
         )
 
         return self.record_and_send_notification(

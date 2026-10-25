@@ -211,7 +211,7 @@ class WorkflowResponsesPayload(BaseModel):
     responses: List[WorkflowResponseSubmission]
 
 class CreateInvitationRequest(BaseModel):
-    email: str
+    email: Optional[str] = None
     vendor_name: Optional[str] = None
     vendor_category: Optional[str] = None
     notes: Optional[str] = None

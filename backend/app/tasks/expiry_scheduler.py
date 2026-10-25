@@ -70,7 +70,7 @@ async def start_expiry_scheduler_loop(interval_seconds: int = 3600):
     """
     Persistent background loop running inside the FastAPI application lifetime.
     """
-    logger.info(f"Starting VendorFlow Expiry Reminder Scheduler (interval: {interval_seconds}s)")
+    logger.info(f"Starting FormGate Expiry Reminder Scheduler (interval: {interval_seconds}s)")
     while True:
         try:
             run_expiry_check_sync()

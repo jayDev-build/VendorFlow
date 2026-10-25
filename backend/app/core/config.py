@@ -5,7 +5,9 @@ import json
 import os
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DEFAULT_DB_FILE = os.path.join(ROOT_DIR, "vendorflow.db").replace("\\", "/")
+_formgate_db = os.path.join(ROOT_DIR, "formgate.db").replace("\\", "/")
+_vendorflow_db = os.path.join(ROOT_DIR, "vendorflow.db").replace("\\", "/")
+DEFAULT_DB_FILE = _formgate_db if os.path.exists(_formgate_db) else _vendorflow_db
 
 class Settings(BaseSettings):
     APP_NAME: str = "FormGate"
@@ -17,7 +19,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = f"sqlite:///{DEFAULT_DB_FILE}"
 
     # Security & Auth
-    SECRET_KEY: str = "insecure-dev-secret-key-change-in-production-vendorflow-2025"
+    SECRET_KEY: str = "insecure-dev-secret-key-change-in-production-formgate-2026"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
     INVITATION_TOKEN_EXPIRE_DAYS: int = 14

@@ -465,9 +465,13 @@ def submit_onboarding(
         if not val or not isinstance(val, str):
             continue
         k = key.lower()
-        if not vendor.name or vendor.name.endswith(" Vendor"):
+        if not vendor.name or vendor.name.endswith(" Vendor") or vendor.name == "Direct Link Applicant":
             if any(term in k for term in ["company_legal_name", "legal_name", "company_name", "business_name", "vendor_name", "trade_name"]):
                 vendor.name = val.strip()
+        if not vendor.contact_email or vendor.contact_email.endswith(".local"):
+            if any(term in k for term in ["email", "contact_email", "company_email", "rep_email", "work_email"]):
+                vendor.contact_email = val.strip()
+                invitation.email = val.strip()
         if not vendor.contact_phone:
             if any(term in k for term in ["phone", "mobile", "contact_number", "telephone"]):
                 vendor.contact_phone = val.strip()
@@ -506,22 +510,23 @@ def submit_onboarding(
     db.commit()
 
     # Confirmation email to vendor
-    notification_service.record_and_send_notification(
-        db=db,
-        organization_id=invitation.organization_id,
-        vendor_id=vendor.id,
-        document_id=None,
-        notification_type="SUBMISSION_CONFIRMATION",
-        recipient_email=vendor.contact_email,
-        subject="VendorFlow: Onboarding Submission Received",
-        body_text=(
-            f"Dear {vendor.name},\n\n"
-            f"We have successfully received your completed onboarding submission and compliance documents.\n"
-            f"Our compliance and verification team will review your files shortly. You will receive an email update once your submission is reviewed.\n\n"
-            f"Thank you,\nVendorFlow Compliance"
-        ),
-        idempotency_key=f"submit_conf_{vendor.id}_{onboarding.id}"
-    )
+    if vendor.contact_email and not vendor.contact_email.endswith(".local"):
+        notification_service.record_and_send_notification(
+            db=db,
+            organization_id=invitation.organization_id,
+            vendor_id=vendor.id,
+            document_id=None,
+            notification_type="SUBMISSION_CONFIRMATION",
+            recipient_email=vendor.contact_email,
+            subject="FormGate: Onboarding Submission Received",
+            body_text=(
+                f"Dear {vendor.name},\n\n"
+                f"We have successfully received your completed onboarding submission and compliance documents.\n"
+                f"Our compliance and verification team will review your files shortly. You will receive an email update once your submission is reviewed.\n\n"
+                f"Thank you,\nFormGate Compliance"
+            ),
+            idempotency_key=f"submit_conf_{vendor.id}_{onboarding.id}"
+        )
 
     return {
         "success": True,

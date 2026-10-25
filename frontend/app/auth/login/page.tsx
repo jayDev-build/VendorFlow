@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Sparkles, Lock, Mail, ArrowRight, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Sparkles, Lock, Mail, ArrowRight, AlertCircle } from 'lucide-react';
 import { api } from '@/lib/api';
 
 export default function LoginPage() {
@@ -27,11 +27,6 @@ export default function LoginPage() {
     }
   };
 
-  const fillDemoCredentials = () => {
-    setEmail('demo@vendorflow.io');
-    setPassword('Password123!');
-  };
-
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
       {/* Background radial glow */}
@@ -47,24 +42,6 @@ export default function LoginPage() {
           <p className="text-xs text-slate-400 mt-1">
             Enterprise AI Compliance Onboarding & Document Lifecycle Platform
           </p>
-        </div>
-
-        {/* Demo Credentials Quick Fill Banner */}
-        <div className="mb-6 p-3.5 bg-indigo-950/50 border border-indigo-800/60 rounded-xl flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <ShieldCheck className="w-4 h-4 text-indigo-400 shrink-0" />
-            <div className="text-xs">
-              <div className="font-semibold text-indigo-200">Demo Account Available</div>
-              <div className="text-indigo-400/80 text-[11px]">demo@vendorflow.io</div>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={fillDemoCredentials}
-            className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium transition-colors shadow-xs"
-          >
-            Auto Fill
-          </button>
         </div>
 
         {errorMsg && (

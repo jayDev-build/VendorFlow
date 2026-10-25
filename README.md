@@ -61,7 +61,7 @@
 ## 🏗️ Repository Structure
 
 ```
-VendorFlow/
+FormGate/
 ├── backend/
 │   ├── app/
 │   │   ├── api/
@@ -99,7 +99,7 @@ VendorFlow/
 │   └── requirements.txt
 ├── frontend/
 │   ├── app/
-│   │   ├── auth/login/page.tsx          # Administrator sign in with 1-click Demo Fill
+│   │   ├── auth/login/page.tsx          # Administrator sign in
 │   │   ├── auth/signup/page.tsx         # Organization setup & administrator registration
 │   │   ├── documents/page.tsx           # Document review queue with inline verification
 │   │   ├── expiry/page.tsx              # Expiry tracker with 5 bucket categories
@@ -175,15 +175,13 @@ The frontend will be live at:
 
 ---
 
-## 🔑 Demo Account Credentials
+## 🔑 Evaluation Account Credentials
 
-VendorFlow includes a pre-seeded demonstration organization ready for immediate evaluation:
+FormGate includes a pre-seeded demonstration organization ready for immediate evaluation:
 
 | Role | Email | Password |
 |---|---|---|
-| **Compliance Admin** | `demo@vendorflow.io` | `Password123!` |
-
-*(On the Login screen, click **"Auto Fill"** to populate these credentials in 1 click).*
+| **Compliance Admin** | `admin@formgate.io` | `Password123!` |
 
 ### Demo Vendor Invitation Link:
 To test the external vendor onboarding portal without creating a new invitation:
@@ -235,13 +233,13 @@ Copy `.env.example` to `.env` to configure external third-party services:
 ```ini
 # Environment
 ENVIRONMENT=development
-APP_NAME="VendorFlow"
+APP_NAME="FormGate"
 DEBUG=true
 
 # Database (PostgreSQL / Supabase or SQLite for zero-setup local dev)
 DATABASE_URL=sqlite:///./vendorflow.db
 # For PostgreSQL:
-# DATABASE_URL=postgresql+psycopg2://postgres:password@localhost:5432/vendorflow
+# DATABASE_URL=postgresql+psycopg2://postgres:password@localhost:5432/formgate
 
 # JWT Security
 SECRET_KEY=change-this-to-a-super-secret-random-32-byte-hex-string-in-production
@@ -249,14 +247,14 @@ ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=1440
 
 # OpenAI API (For AI Workflow Generation)
-# If left blank, VendorFlow activates an intelligent deterministic fallback generator
+# If left blank, FormGate activates an intelligent deterministic fallback generator
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4o-mini
 
 # Transactional Email (Resend)
-# If left blank, VendorFlow logs simulated emails to console and the notification_jobs table
+# If left blank, FormGate logs simulated emails to console and the notification_jobs table
 RESEND_API_KEY=
-SENDER_EMAIL=onboarding@vendorflow.io
+SENDER_EMAIL=onboarding@formgate.io
 
 # Supabase (Optional)
 SUPABASE_URL=

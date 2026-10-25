@@ -51,10 +51,11 @@ export default function WorkflowsPage() {
     fetchWorkflows();
   }, []);
 
-  const handlePublish = async (workflowId: string) => {
+  const handlePublish = async (workflowId: string, workflowName?: string) => {
     try {
-      await api.publishWorkflow(workflowId);
-      fetchWorkflows();
+      const pub = await api.publishWorkflow(workflowId);
+      await fetchWorkflows();
+      setActiveWorkflowForInvite({ id: pub.id, name: pub.name || workflowName || 'Workflow' });
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to publish workflow');
     }
@@ -220,7 +221,7 @@ export default function WorkflowsPage() {
                       {wf.status === 'DRAFT' ? (
                         <button
                           type="button"
-                          onClick={() => handlePublish(wf.id)}
+                          onClick={() => handlePublish(wf.id, wf.name)}
                           className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                         >
                           Publish

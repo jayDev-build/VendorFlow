@@ -84,7 +84,7 @@ app.include_router(dashboard_router, prefix="/api/v1")
 @app.get("/")
 def root():
     return {
-        "service": "VendorFlow API",
+        "service": "FormGate API",
         "status": "online",
         "version": "1.0.0",
         "docs_url": "/docs",
@@ -93,4 +93,4 @@ def root():
 
 @app.get("/api/v1/health")
 def health_check():
-    return {"status": "healthy", "service": "vendorflow-backend"}
+    return {"status": "healthy", "service": "formgate-backend"}

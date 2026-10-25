@@ -1,9 +1,7 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Bell, Search, ShieldCheck, ExternalLink, Sparkles } from 'lucide-react';
 
 interface TopNavProps {
   title?: string;
@@ -36,19 +34,11 @@ export const TopNav: React.FC<TopNavProps> = ({ title, subtitle, actions }) => {
         {subtitle && <p className="text-xs text-slate-700 font-medium mt-0.5">{subtitle}</p>}
       </div>
 
-      <div className="flex items-center gap-3">
-        {actions}
-        
-        {/* Request Demo link - takes directly to the workflow page where forms are created */}
-        <Link
-          href="/workflows/new"
-          className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors border border-indigo-200 shadow-2xs"
-          title="Create onboarding workflow & form schema"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-          <span>Request Demo</span>
-        </Link>
-      </div>
+      {actions && (
+        <div className="flex items-center gap-3">
+          {actions}
+        </div>
+      )}
     </header>
   );
 };

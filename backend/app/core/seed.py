@@ -53,7 +53,7 @@ def seed_database():
         # 2. Admin User
         admin = User(
             organization_id=org.id,
-            email="demo@vendorflow.io",
+            email="admin@formgate.io",
             hashed_password=get_password_hash("Password123!"),
             full_name="Sarah Jenkins",
             role="admin",
@@ -277,7 +277,7 @@ def seed_database():
 
         db.commit()
         print("Demo seed data created successfully!")
-        print(f"Admin login: demo@vendorflow.io / Password123!")
+        print(f"Admin login: admin@formgate.io / Password123!")
         print(f"Sample Vendor Invitation Token: {raw_token}")
 
     finally:

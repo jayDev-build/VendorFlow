@@ -429,38 +429,46 @@ def create_vendor_invitation(
             detail="Cannot generate invitations for an unpublished workflow. Please publish the workflow first."
         )
 
+    raw_token = generate_secure_token(32)
+    t_hash = hash_token(raw_token)
+    expires = datetime.now(timezone.utc) + timedelta(days=payload.expires_in_days)
+
+    has_email = bool(payload.email and payload.email.strip())
+    clean_email = payload.email.lower().strip() if has_email else f"link-{raw_token[:8]}@{current_org.slug or 'formgate'}.local"
+
     # Find or create vendor
-    vendor = (
-        db.query(Vendor)
-        .filter(
-            Vendor.organization_id == current_org.id,
-            Vendor.contact_email == payload.email.lower().strip()
+    vendor = None
+    if has_email:
+        vendor = (
+            db.query(Vendor)
+            .filter(
+                Vendor.organization_id == current_org.id,
+                Vendor.contact_email == clean_email
+            )
+            .first()
         )
-        .first()
-    )
 
     if not vendor:
-        vendor_name = payload.vendor_name or payload.email.split("@")[0].capitalize() + " Vendor"
+        if has_email:
+            vendor_name = payload.vendor_name or clean_email.split("@")[0].capitalize() + " Vendor"
+        else:
+            vendor_name = payload.vendor_name or "Direct Link Applicant"
         vendor = Vendor(
             organization_id=current_org.id,
             name=vendor_name,
             category=payload.vendor_category or template.vendor_category,
-            contact_email=payload.email.lower().strip(),
+            contact_email=clean_email,
             status="INVITED",
-            notes=payload.notes
+            notes=payload.notes or ("Direct form link generated" if not has_email else None)
         )
         db.add(vendor)
         db.flush()
-
-    raw_token = generate_secure_token(32)
-    t_hash = hash_token(raw_token)
-    expires = datetime.now(timezone.utc) + timedelta(days=payload.expires_in_days)
 
     invitation = InvitationToken(
         organization_id=current_org.id,
         workflow_version_id=template.current_version_id,
         vendor_id=vendor.id,
-        email=payload.email.lower().strip(),
+        email=clean_email,
         token_hash=t_hash,
         expires_at=expires,
         is_revoked=False
@@ -471,31 +479,32 @@ def create_vendor_invitation(
 
     invitation_url = f"{settings.APP_BASE_URL}/vendor/onboard/{raw_token}"
 
-    # Notify vendor via email
-    subject = f"Vendor Onboarding Invitation from {current_org.name}"
-    body = (
-        f"Hello,\n\n"
-        f"{current_user.full_name} ({current_user.email}) from {current_org.name} has invited you to complete your vendor onboarding and document submission.\n\n"
-        f"Workflow: {template.name}\n\n"
-        f"Please click the secure link below to upload required certificates and business details:\n"
-        f"{invitation_url}\n\n"
-        f"This secure link will expire in {payload.expires_in_days} days.\n\n"
-        f"If you have any questions, reply directly to this email to reach {current_user.full_name}.\n\n"
-        f"Best regards,\n{current_user.full_name} ({current_user.email})\n{current_org.name} Compliance Team"
-    )
-    notification_service.record_and_send_notification(
-        db=db,
-        organization_id=current_org.id,
-        vendor_id=vendor.id,
-        document_id=None,
-        notification_type="INVITATION",
-        recipient_email=vendor.contact_email,
-        subject=subject,
-        body_text=body,
-        idempotency_key=f"invite_{invitation.id}",
-        reply_to=current_user.email,
-        sender_name=f"{current_user.full_name} via {current_org.name}"
-    )
+    # Notify vendor via email only if a real recipient email was supplied
+    if has_email and not clean_email.endswith(".local"):
+        subject = f"Vendor Onboarding Invitation from {current_org.name}"
+        body = (
+            f"Hello,\n\n"
+            f"{current_user.full_name} ({current_user.email}) from {current_org.name} has invited you to complete your vendor onboarding and document submission.\n\n"
+            f"Workflow: {template.name}\n\n"
+            f"Please click the secure link below to upload required certificates and business details:\n"
+            f"{invitation_url}\n\n"
+            f"This secure link will expire in {payload.expires_in_days} days.\n\n"
+            f"If you have any questions, reply directly to this email to reach {current_user.full_name}.\n\n"
+            f"Best regards,\n{current_user.full_name} ({current_user.email})\n{current_org.name} Compliance Team"
+        )
+        notification_service.record_and_send_notification(
+            db=db,
+            organization_id=current_org.id,
+            vendor_id=vendor.id,
+            document_id=None,
+            notification_type="INVITATION",
+            recipient_email=vendor.contact_email,
+            subject=subject,
+            body_text=body,
+            idempotency_key=f"invite_{invitation.id}",
+            reply_to=current_user.email,
+            sender_name=f"{current_user.full_name} via {current_org.name}"
+        )
 
     return InvitationResponse(
         id=invitation.id,

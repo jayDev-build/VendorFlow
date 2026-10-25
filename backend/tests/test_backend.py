@@ -19,7 +19,7 @@ from app.services.notification_service import notification_service
 from app.core.security import generate_secure_token, hash_token
 
 # Test database
-TEST_DB_URL = "sqlite:///./test_vendorflow.db"
+TEST_DB_URL = "sqlite:///./test_formgate.db"
 test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
@@ -38,9 +38,9 @@ def setup_test_db():
     Base.metadata.create_all(bind=test_engine)
     yield
     Base.metadata.drop_all(bind=test_engine)
-    if os.path.exists("./test_vendorflow.db"):
+    if os.path.exists("./test_formgate.db"):
         try:
-            os.remove("./test_vendorflow.db")
+            os.remove("./test_formgate.db")
         except Exception:
             pass
 
@@ -1009,6 +1009,32 @@ def test_workflow_responses_endpoint_and_vendor_submissions(client):
     assert v_sub["form_responses"]["field_company"] == "Audit Ready Ltd"
     assert len(v_sub["documents"]) == 1
     assert v_sub["documents"][0]["original_filename"] == "cert.pdf"
+
+def test_direct_shareable_link_without_email(client):
+    # Login as Admin A
+    login_res = client.post("/api/v1/auth/login", json={"email": "admin_a@tenant-a.com", "password": "Password123!"})
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Fetch a published workflow
+    wf_list = client.get("/api/v1/workflows", headers=headers).json()
+    published_wf = [w for w in wf_list if w["status"] == "PUBLISHED"][0]
+
+    # Generate invitation link without providing email (instant form link)
+    invite_res = client.post(f"/api/v1/workflows/{published_wf['id']}/invitations", json={}, headers=headers)
+    assert invite_res.status_code == 200
+    data = invite_res.json()
+    assert "invitation_url" in data
+    assert "/vendor/onboard/" in data["invitation_url"]
+
+    # Public portal should open cleanly
+    raw_token = data["invitation_url"].split("/vendor/onboard/")[-1]
+    portal_res = client.get(f"/api/v1/public/invitations/{raw_token}")
+    assert portal_res.status_code == 200
+    portal_data = portal_res.json()
+    assert portal_data["valid"] is True
+    assert portal_data["workflow_name"] == published_wf["name"]
+
 
 
 
