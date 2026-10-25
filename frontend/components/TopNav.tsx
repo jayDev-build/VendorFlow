@@ -15,7 +15,7 @@ export const TopNav: React.FC<TopNavProps> = ({ title, subtitle, actions }) => {
   // If title is not passed, deduce from pathname
   const getPageTitle = () => {
     if (title) return title;
-    if (pathname === '/') return 'Overview';
+    if (pathname === '/' || pathname.startsWith('/dashboard') || pathname.startsWith('/overview')) return 'Overview';
     if (pathname.startsWith('/vendors')) return 'Vendors Directory';
     if (pathname.startsWith('/workflows/new')) return 'AI Workflow Generator';
     if (pathname.startsWith('/workflows')) return 'Onboarding Workflows';

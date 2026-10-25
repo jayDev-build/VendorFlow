@@ -20,7 +20,7 @@ import {
 import { api } from '@/lib/api';
 
 const navItems = [
-  { name: 'Overview', href: '/', icon: LayoutDashboard },
+  { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Vendors', href: '/vendors', icon: Users },
   { name: 'Workflows', href: '/workflows', icon: GitBranch },
   { name: 'Documents', href: '/documents', icon: FileCheck2 },
@@ -40,8 +40,13 @@ export const Sidebar: React.FC = () => {
     if (session.user) setUser(session.user);
   }, []);
 
-  // Do not render sidebar on vendor public onboarding portal or auth pages
-  if (pathname.startsWith('/vendor/onboard') || pathname.startsWith('/auth/')) {
+  // Do not render sidebar on public landing page, interactive demo, auth pages, or vendor portal
+  if (
+    pathname === '/' ||
+    pathname.startsWith('/demo') ||
+    pathname.startsWith('/auth') ||
+    pathname.startsWith('/vendor/onboard')
+  ) {
     return null;
   }
 
@@ -53,7 +58,7 @@ export const Sidebar: React.FC = () => {
     <div className="flex flex-col h-full bg-slate-900 text-slate-300 w-64 border-r border-slate-800">
       {/* Brand Header */}
       <div className="p-5 border-b border-slate-800/80 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-3 group">
+        <Link href="/dashboard" className="flex items-center gap-3 group">
           <div className="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 group-hover:bg-indigo-500 transition-colors">
             <Sparkles className="w-5 h-5" />
           </div>
@@ -89,7 +94,10 @@ export const Sidebar: React.FC = () => {
       {/* Nav List */}
       <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
-          const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+          const isActive =
+            item.href === '/dashboard'
+              ? pathname === '/dashboard' || pathname === '/overview'
+              : pathname.startsWith(item.href);
           const Icon = item.icon;
           return (
             <Link
@@ -144,7 +152,7 @@ export const Sidebar: React.FC = () => {
     <>
       {/* Mobile Trigger Bar */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 z-40">
-        <Link href="/" className="flex items-center gap-2 text-white font-semibold">
+        <Link href="/dashboard" className="flex items-center gap-2 text-white font-semibold">
           <div className="w-7 h-7 rounded bg-indigo-600 flex items-center justify-center text-white">
             <Sparkles className="w-4 h-4" />
           </div>

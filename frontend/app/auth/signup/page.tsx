@@ -28,7 +28,7 @@ export default function SignupPage() {
         password,
         business_profile: { industry }
       });
-      router.push('/');
+      router.push('/dashboard');
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to create organization');
     } finally {

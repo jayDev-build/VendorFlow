@@ -84,6 +84,136 @@ function VendorOnboardingPortalContent() {
       try {
         setLoading(true);
         setErrorMsg('');
+
+        // Handle Demo & Sample Resubmission Sandbox tokens
+        if (token.startsWith('resubmit-sample-') || token.includes('sample') || token.includes('demo')) {
+          const sampleData: PublicInvitationData = {
+            valid: true,
+            email: 'contact@zenithfacility.com',
+            organization_name: 'FormGate Enterprise',
+            workflow_name: 'Facility Management Statutory Verification',
+            workflow_description: 'Statutory compliance verification and single-file document resubmission portal for facility management contractors.',
+            vendor_category: 'Facility Management',
+            expires_at: '2026-12-31T23:59:59Z',
+            is_submitted: false,
+            schema_definition: {
+              name: 'Facility Management Statutory Verification',
+              vendor_category: 'Facility Management',
+              description: 'Statutory compliance verification for facility contractors.',
+              approval_required: true,
+              reminder_rules: [30, 7, 1],
+              generated_questions: [],
+              assumptions: [],
+              warnings: [],
+              fields: [
+                {
+                  id: 'field_legal_name',
+                  label: 'Legal Entity Name',
+                  field_type: 'short_text',
+                  required: true,
+                  track_expiry: false,
+                  allowed_file_types: [],
+                  max_file_size_mb: 5
+                },
+                {
+                  id: 'field_gst_cert',
+                  label: 'GST Tax Invoice & Registration Proof',
+                  field_type: 'file_upload',
+                  required: true,
+                  track_expiry: false,
+                  allowed_file_types: ['pdf', 'jpg', 'jpeg', 'png', 'webp'],
+                  max_file_size_mb: 15
+                },
+                {
+                  id: 'field_comm_reg',
+                  label: 'Commercial Registration Proof (Blurry Scan)',
+                  field_type: 'file_upload',
+                  required: true,
+                  track_expiry: false,
+                  allowed_file_types: ['pdf', 'jpg', 'jpeg', 'png', 'webp'],
+                  max_file_size_mb: 15
+                },
+                {
+                  id: 'field_cgl_policy',
+                  label: 'Certificate of Insurance (OCP Policy)',
+                  field_type: 'file_upload',
+                  required: true,
+                  track_expiry: true,
+                  allowed_file_types: ['pdf', 'jpg', 'jpeg', 'png', 'webp'],
+                  max_file_size_mb: 15
+                }
+              ]
+            },
+            existing_responses: {
+              field_legal_name: 'Zenith Facility Solutions Private Limited'
+            },
+            existing_documents: [
+              {
+                id: 'doc-approved-gst',
+                field_id: 'field_gst_cert',
+                document_type: 'GST Tax Invoice & Registration Proof',
+                original_filename: 'A4-S1-GST-Invoice-Format_page-0001-scaled.jpg',
+                status: 'APPROVED',
+                file_size: 331876,
+                mime_type: 'image/jpeg',
+                view_url: '/A4-S1-GST-Invoice-Format_page-0001-scaled.jpg',
+                download_url: '/A4-S1-GST-Invoice-Format_page-0001-scaled.jpg'
+              },
+              {
+                id: 'doc-rejected-comm',
+                field_id: 'field_comm_reg',
+                document_type: 'Commercial Registration Proof (Blurry Scan)',
+                original_filename: 'texture-blurry-text-open-textbook-260nw-1175839786.webp',
+                status: 'REJECTED',
+                review_reason: 'Illegible & blurry text scan. Document contents and registration number cannot be verified.',
+                file_size: 8094,
+                mime_type: 'image/webp',
+                has_replacement: false,
+                view_url: '/texture-blurry-text-open-textbook-260nw-1175839786.webp',
+                download_url: '/texture-blurry-text-open-textbook-260nw-1175839786.webp'
+              },
+              {
+                id: 'doc-approved-cgl',
+                field_id: 'field_cgl_policy',
+                document_type: 'Certificate of Insurance (OCP Policy)',
+                original_filename: 'owner-and-protective-OCP-insurance-certificate-template.jpg',
+                status: 'APPROVED',
+                file_size: 51098,
+                mime_type: 'image/jpeg',
+                expiry_date: '2027-03-31',
+                view_url: '/owner-and-protective-OCP-insurance-certificate-template.jpg',
+                download_url: '/owner-and-protective-OCP-insurance-certificate-template.jpg'
+              }
+            ]
+          };
+
+          setData(sampleData);
+          setSubmittedSuccess(false);
+          setFormResponses(sampleData.existing_responses || {});
+          const docsMap: Record<string, UploadedFileRecord> = {};
+          const expMap: Record<string, string> = {};
+          (sampleData.existing_documents || []).forEach((d) => {
+            docsMap[d.field_id] = {
+              id: d.id,
+              filename: d.original_filename,
+              expiry: d.expiry_date,
+              mime_type: d.mime_type,
+              file_size: d.file_size,
+              view_url: d.view_url,
+              download_url: d.download_url,
+              status: d.status,
+              review_reason: d.review_reason,
+              has_replacement: Boolean(d.has_replacement)
+            };
+            if (d.expiry_date) {
+              expMap[d.field_id] = d.expiry_date.split('T')[0];
+            }
+          });
+          setUploadedFiles(docsMap);
+          setDocumentExpiries(expMap);
+          return;
+        }
+
         const res = await api.getPublicInvitation(token);
         setData(res);
 
@@ -129,6 +259,35 @@ function VendorOnboardingPortalContent() {
       setUploadingFieldId(field.id);
       setErrorMsg('');
 
+      // Handle demo sample mode client-side upload simulation
+      if (token.startsWith('resubmit-sample-') || token.includes('sample') || token.includes('demo')) {
+        await new Promise((r) => setTimeout(r, 400));
+        const objectUrl = URL.createObjectURL(file);
+        setUploadedFiles((prev) => {
+          const currentRecord = prev[field.id];
+          const prevStatus = currentRecord?.status;
+          const prevReason = currentRecord?.review_reason;
+          const isResubmitDoc = prevStatus === 'RESUBMISSION_REQUESTED' || prevStatus === 'REJECTED';
+
+          return {
+            ...prev,
+            [field.id]: {
+              id: 'mock-doc-' + Date.now(),
+              filename: file.name,
+              expiry: documentExpiries[field.id],
+              mime_type: file.type,
+              file_size: file.size,
+              view_url: objectUrl,
+              download_url: objectUrl,
+              status: isResubmitDoc ? prevStatus : 'SUBMITTED',
+              review_reason: isResubmitDoc ? prevReason : undefined,
+              has_replacement: true
+            }
+          };
+        });
+        return;
+      }
+
       const expiry = documentExpiries[field.id];
       const res = await api.uploadPublicDocument(token, file, field.id, field.label, expiry);
 
@@ -170,6 +329,16 @@ function VendorOnboardingPortalContent() {
     try {
       setDeletingFieldId(fieldId);
       setErrorMsg('');
+
+      if (token.startsWith('resubmit-sample-') || token.includes('sample') || token.includes('demo')) {
+        setUploadedFiles((prev) => {
+          const next = { ...prev };
+          delete next[fieldId];
+          return next;
+        });
+        return;
+      }
+
       await api.deletePublicDocument(token, doc.id);
 
       setUploadedFiles((prev) => {
@@ -252,6 +421,12 @@ function VendorOnboardingPortalContent() {
     try {
       setIsSubmitting(true);
       setErrorMsg('');
+
+      if (token.startsWith('resubmit-sample-') || token.includes('sample') || token.includes('demo')) {
+        await new Promise((r) => setTimeout(r, 600));
+        setSubmittedSuccess(true);
+        return;
+      }
 
       await api.submitPublicOnboarding(token, formResponses, documentExpiries);
       setSubmittedSuccess(true);

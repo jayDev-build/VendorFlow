@@ -19,7 +19,7 @@ export default function LoginPage() {
       setLoading(true);
       setErrorMsg('');
       await api.login(email, password);
-      router.push('/');
+      router.push('/dashboard');
     } catch (err: any) {
       setErrorMsg(err.message || 'Invalid credentials');
     } finally {
