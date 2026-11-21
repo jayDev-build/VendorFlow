@@ -359,7 +359,8 @@ def request_missing_documents(
         body_text=body,
         idempotency_key=f"doc_req_{vendor.id}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}",
         reply_to=current_user.email,
-        sender_name=f"{current_user.full_name} via {current_org.name}"
+        sender_name=f"{current_user.full_name} via {current_org.name}",
+        cc=current_user.email
     )
 
     return {"success": True, "message": "Document request notification sent to vendor.", "job_id": job.id}

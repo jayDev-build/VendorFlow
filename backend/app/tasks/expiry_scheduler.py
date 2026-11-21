@@ -71,9 +71,11 @@ async def start_expiry_scheduler_loop(interval_seconds: int = 3600):
     Persistent background loop running inside the FastAPI application lifetime.
     """
     logger.info(f"Starting FormGate Expiry Reminder Scheduler (interval: {interval_seconds}s)")
+    # Initial brief pause to let server startup and socket binding complete
+    await asyncio.sleep(2)
     while True:
         try:
-            run_expiry_check_sync()
+            await asyncio.to_thread(run_expiry_check_sync)
         except Exception as e:
             logger.error(f"Exception in scheduler iteration: {e}")
         await asyncio.sleep(interval_seconds)

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.config import settings
@@ -8,6 +8,7 @@ from app.core.security import generate_secure_token, hash_token
 from app.models.models import (
     WorkflowTemplate,
     WorkflowVersion,
+    WorkflowAssignment,
     Vendor,
     VendorOnboarding,
     InvitationToken,
@@ -414,6 +415,7 @@ def delete_workflow(
 def create_vendor_invitation(
     workflow_id: str,
     payload: CreateInvitationRequest,
+    request: Request,
     current_org: Organization = Depends(get_current_org),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -464,6 +466,33 @@ def create_vendor_invitation(
         db.add(vendor)
         db.flush()
 
+    # Ensure client has unified portal token
+    if not vendor.portal_token:
+        vendor.portal_token = generate_secure_token(32)
+
+    # Ensure distinct WorkflowAssignment exists for this client and workflow
+    assignment = (
+        db.query(WorkflowAssignment)
+        .filter(
+            WorkflowAssignment.client_id == vendor.id,
+            WorkflowAssignment.workflow_id == template.id
+        )
+        .first()
+    )
+    if not assignment:
+        assignment = WorkflowAssignment(
+            organization_id=current_org.id,
+            client_id=vendor.id,
+            workflow_id=template.id,
+            workflow_version_id=template.current_version_id,
+            status="IN_PROGRESS"
+        )
+        db.add(assignment)
+    else:
+        assignment.workflow_version_id = template.current_version_id
+        if assignment.status not in ("SUBMITTED", "APPROVED"):
+            assignment.status = "IN_PROGRESS"
+
     invitation = InvitationToken(
         organization_id=current_org.id,
         workflow_version_id=template.current_version_id,
@@ -476,21 +505,31 @@ def create_vendor_invitation(
     db.add(invitation)
     db.commit()
     db.refresh(invitation)
+    db.refresh(vendor)
 
-    invitation_url = f"{settings.APP_BASE_URL}/vendor/onboard/{raw_token}"
+    app_base = settings.APP_BASE_URL.rstrip("/")
+    origin = request.headers.get("origin") or request.headers.get("referer")
+    if origin and (origin.startswith("http://") or origin.startswith("https://")):
+        from urllib.parse import urlparse
+        p = urlparse(origin)
+        detected = f"{p.scheme}://{p.netloc}"
+        if app_base in ("http://localhost:3000", "http://127.0.0.1:3000") and detected:
+            app_base = detected
 
-    # Notify vendor via email only if a real recipient email was supplied
+    invitation_url = f"{app_base}/vendor/onboard/{raw_token}"
+    portal_url = f"{app_base}/portal/{vendor.portal_token}"
+
+    # Notify client via email only if a real recipient email was supplied
     if has_email and not clean_email.endswith(".local"):
-        subject = f"Vendor Onboarding Invitation from {current_org.name}"
+        subject = f"Document Submission & Onboarding Invitation from {current_org.name}"
         body = (
-            f"Hello,\n\n"
-            f"{current_user.full_name} ({current_user.email}) from {current_org.name} has invited you to complete your vendor onboarding and document submission.\n\n"
-            f"Workflow: {template.name}\n\n"
-            f"Please click the secure link below to upload required certificates and business details:\n"
-            f"{invitation_url}\n\n"
-            f"This secure link will expire in {payload.expires_in_days} days.\n\n"
+            f"Hello {vendor.name},\n\n"
+            f"{current_user.full_name} ({current_user.email}) from {current_org.name} has invited you to complete your client onboarding and document submissions.\n\n"
+            f"Assigned Workflow: {template.name}\n\n"
+            f"Please click your secure unified client portal link below to review requirements and upload documents:\n"
+            f"{portal_url}\n\n"
             f"If you have any questions, reply directly to this email to reach {current_user.full_name}.\n\n"
-            f"Best regards,\n{current_user.full_name} ({current_user.email})\n{current_org.name} Compliance Team"
+            f"Best regards,\n{current_user.full_name} ({current_user.email})\n{current_org.name} Team"
         )
         notification_service.record_and_send_notification(
             db=db,
@@ -503,7 +542,10 @@ def create_vendor_invitation(
             body_text=body,
             idempotency_key=f"invite_{invitation.id}",
             reply_to=current_user.email,
-            sender_name=f"{current_user.full_name} via {current_org.name}"
+            sender_name=f"{current_user.full_name} via {current_org.name}",
+            cta_url=portal_url,
+            cta_text="Access Client Portal",
+            cc=current_user.email
         )
 
     return InvitationResponse(
@@ -512,6 +554,7 @@ def create_vendor_invitation(
         vendor_id=vendor.id,
         workflow_version_id=invitation.workflow_version_id,
         invitation_url=invitation_url,
+        portal_url=portal_url,
         expires_at=invitation.expires_at,
         is_revoked=invitation.is_revoked,
         used_at=invitation.used_at,

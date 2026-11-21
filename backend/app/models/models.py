@@ -58,12 +58,14 @@ class Vendor(Base):
     contact_phone = Column(String(50), nullable=True)
     status = Column(String(50), default="INVITED", nullable=False, index=True) 
     # Statuses: INVITED, IN_PROGRESS, SUBMITTED, APPROVED, REJECTED, SUSPENDED, ARCHIVED
+    portal_token = Column(String(64), unique=True, index=True, nullable=True)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
     organization = relationship("Organization", back_populates="vendors")
     onboardings = relationship("VendorOnboarding", back_populates="vendor", cascade="all, delete-orphan")
+    workflow_assignments = relationship("WorkflowAssignment", back_populates="client", cascade="all, delete-orphan")
     documents = relationship("Document", back_populates="vendor", cascade="all, delete-orphan")
     invitations = relationship("InvitationToken", back_populates="vendor", cascade="all, delete-orphan")
 
@@ -83,6 +85,7 @@ class WorkflowTemplate(Base):
 
     organization = relationship("Organization", back_populates="workflow_templates")
     versions = relationship("WorkflowVersion", back_populates="template", cascade="all, delete-orphan")
+    assignments = relationship("WorkflowAssignment", back_populates="workflow", cascade="all, delete-orphan")
 
 
 class WorkflowVersion(Base):
@@ -148,12 +151,35 @@ class InvitationToken(Base):
     workflow_version = relationship("WorkflowVersion", back_populates="invitations")
 
 
+class WorkflowAssignment(Base):
+    __tablename__ = "workflow_assignments"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    client_id = Column(String(36), ForeignKey("vendors.id", ondelete="CASCADE"), nullable=False, index=True)
+    workflow_id = Column(String(36), ForeignKey("workflow_templates.id", ondelete="CASCADE"), nullable=False, index=True)
+    workflow_version_id = Column(String(36), ForeignKey("workflow_versions.id", ondelete="RESTRICT"), nullable=True, index=True)
+    status = Column(String(50), default="IN_PROGRESS", nullable=False, index=True)
+    # Statuses: IN_PROGRESS, SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED, RESUBMISSION_REQUESTED
+    form_responses = Column(JSON, nullable=True, default=dict)
+    submitted_at = Column(DateTime(timezone=True), nullable=True)
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+
+    client = relationship("Vendor", back_populates="workflow_assignments")
+    workflow = relationship("WorkflowTemplate", back_populates="assignments")
+    workflow_version = relationship("WorkflowVersion")
+    documents = relationship("Document", back_populates="assignment", cascade="all, delete-orphan")
+
+
 class Document(Base):
     __tablename__ = "documents"
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
     organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
     vendor_id = Column(String(36), ForeignKey("vendors.id", ondelete="CASCADE"), nullable=False, index=True)
+    assignment_id = Column(String(36), ForeignKey("workflow_assignments.id", ondelete="CASCADE"), nullable=True, index=True)
     onboarding_id = Column(String(36), ForeignKey("vendor_onboardings.id", ondelete="CASCADE"), nullable=True, index=True)
     field_id = Column(String(100), nullable=False) # maps to field id in workflow schema
     document_type = Column(String(100), nullable=False, index=True) # e.g. "GST Certificate", "PAN Card"
@@ -170,6 +196,7 @@ class Document(Base):
 
     organization = relationship("Organization", back_populates="documents")
     vendor = relationship("Vendor", back_populates="documents")
+    assignment = relationship("WorkflowAssignment", back_populates="documents")
     onboarding = relationship("VendorOnboarding", back_populates="documents")
     reviews = relationship("DocumentReview", back_populates="document", cascade="all, delete-orphan")
 
@@ -213,6 +240,7 @@ class NotificationJob(Base):
     document_id = Column(String(36), ForeignKey("documents.id", ondelete="SET NULL"), nullable=True, index=True)
     notification_type = Column(String(50), nullable=False) # EXPIRY_REMINDER, RESUBMISSION_REQUEST, INVITATION
     recipient_email = Column(String(255), nullable=False, index=True)
+    cc_email = Column(String(255), nullable=True)
     status = Column(String(50), default="PENDING", nullable=False, index=True) # PENDING, SENT, FAILED
     idempotency_key = Column(String(255), unique=True, index=True, nullable=False)
     sent_at = Column(DateTime(timezone=True), nullable=True)

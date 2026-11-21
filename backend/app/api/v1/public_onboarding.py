@@ -9,11 +9,13 @@ from app.core.security import hash_token
 from app.models.models import (
     InvitationToken,
     WorkflowVersion,
+    WorkflowAssignment,
     Organization,
     Vendor,
     VendorOnboarding,
     Document,
     AuditLog,
+    User,
 )
 from app.schemas.vendor import PublicInvitationView, PublicSubmissionPayload
 from app.services.storage_service import storage_service
@@ -26,6 +28,59 @@ router = APIRouter(prefix="/public/invitations", tags=["Public Vendor Portal"])
 def get_valid_invitation(token: str, db: Session) -> InvitationToken:
     t_hash = hash_token(token)
     invitation = db.query(InvitationToken).filter(InvitationToken.token_hash == t_hash).first()
+    if not invitation:
+        # Check if token is a client's unified portal_token
+        vendor = db.query(Vendor).filter(Vendor.portal_token == token).first()
+        if vendor:
+            # If the client has a flagged (rejected / resubmission requested) document, route to that workflow version first
+            flagged_doc = (
+                db.query(Document)
+                .filter(
+                    Document.vendor_id == vendor.id,
+                    Document.status.in_(["REJECTED", "RESUBMISSION_REQUESTED"])
+                )
+                .order_by(Document.updated_at.desc())
+                .first()
+            )
+            target_wv_id = None
+            if flagged_doc:
+                if flagged_doc.onboarding and flagged_doc.onboarding.workflow_version_id:
+                    target_wv_id = flagged_doc.onboarding.workflow_version_id
+                elif flagged_doc.assignment and flagged_doc.assignment.workflow_version_id:
+                    target_wv_id = flagged_doc.assignment.workflow_version_id
+
+            if target_wv_id:
+                invitation = (
+                    db.query(InvitationToken)
+                    .filter(
+                        InvitationToken.vendor_id == vendor.id,
+                        InvitationToken.workflow_version_id == target_wv_id
+                    )
+                    .order_by(InvitationToken.created_at.desc())
+                    .first()
+                )
+
+            if not invitation:
+                invitation = (
+                    db.query(InvitationToken)
+                    .filter(InvitationToken.vendor_id == vendor.id)
+                    .order_by(InvitationToken.created_at.desc())
+                    .first()
+                )
+            if not invitation and vendor.workflow_assignments:
+                assign = vendor.workflow_assignments[0]
+                invitation = InvitationToken(
+                    organization_id=vendor.organization_id,
+                    workflow_version_id=assign.workflow_version_id,
+                    vendor_id=vendor.id,
+                    email=vendor.contact_email,
+                    token_hash=t_hash,
+                    expires_at=datetime.now(timezone.utc) + timedelta(days=14),
+                    is_revoked=False
+                )
+                db.add(invitation)
+                db.commit()
+
     if not invitation:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -97,12 +152,20 @@ def view_invitation(token: str, db: Session = Depends(get_db)):
                 submission_status = "IN_PROGRESS"
                 if onboarding.form_responses:
                     existing_responses = onboarding.form_responses
+            else:
+                is_submitted = (invitation.used_at is not None)
+                submission_status = onboarding.status
+                if onboarding.form_responses:
+                    existing_responses = onboarding.form_responses
 
             docs = (
                 db.query(Document)
                 .filter(
                     Document.vendor_id == vendor.id,
-                    Document.onboarding_id == onboarding.id
+                    or_(
+                        Document.onboarding_id == onboarding.id,
+                        Document.onboarding_id.is_(None)
+                    )
                 )
                 .all()
             )
@@ -184,7 +247,7 @@ async def upload_document(
         db.flush()
         invitation.vendor_id = vendor.id
 
-    # Find or create Onboarding instance
+    # Find or create Onboarding instance for THIS specific workflow version
     if invitation.used_at is not None:
         onboarding = (
             db.query(VendorOnboarding)
@@ -232,17 +295,42 @@ async def upload_document(
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid expiry date format. Use YYYY-MM-DD.")
 
+    # Link to workflow assignment if exists
+    assignment = (
+        db.query(WorkflowAssignment)
+        .filter(
+            WorkflowAssignment.client_id == vendor.id,
+            WorkflowAssignment.workflow_version_id == version.id
+        )
+        .first()
+    )
+    if not assignment:
+        assignment = (
+            db.query(WorkflowAssignment)
+            .filter(
+                WorkflowAssignment.client_id == vendor.id,
+                WorkflowAssignment.workflow_id == version.workflow_template_id
+            )
+            .first()
+        )
+
     # Remove previous document for same field in this onboarding if any (resubmission)
     existing_doc = (
         db.query(Document)
         .filter(
             Document.vendor_id == vendor.id,
-            Document.onboarding_id == onboarding.id,
-            Document.field_id == field_id
+            Document.field_id == field_id,
+            or_(
+                Document.onboarding_id == onboarding.id,
+                Document.onboarding_id.is_(None)
+            )
         )
         .first()
     )
     if existing_doc:
+        existing_doc.onboarding_id = onboarding.id
+        if assignment and not existing_doc.assignment_id:
+            existing_doc.assignment_id = assignment.id
         existing_doc.original_filename = file.filename or "uploaded_document"
         existing_doc.file_size = file_size
         existing_doc.mime_type = mime_type
@@ -258,6 +346,7 @@ async def upload_document(
             organization_id=invitation.organization_id,
             vendor_id=vendor.id,
             onboarding_id=onboarding.id,
+            assignment_id=assignment.id if assignment else None,
             field_id=field_id,
             document_type=document_type,
             original_filename=file.filename or "uploaded_document",
@@ -303,15 +392,11 @@ def view_public_document(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    file_path = storage_service.get_file_path(doc.storage_path)
-    media_type = doc.mime_type or "application/octet-stream"
-    disposition = "attachment" if download else "inline"
-
-    return FileResponse(
-        path=file_path,
-        media_type=media_type,
-        filename=doc.original_filename if download else None,
-        content_disposition_type=disposition
+    return storage_service.get_download_response(
+        storage_path=doc.storage_path,
+        original_filename=doc.original_filename,
+        mime_type=doc.mime_type,
+        inline=not download
     )
 
 @router.delete("/{token}/documents/{document_id}")
@@ -404,7 +489,10 @@ def submit_onboarding(
     existing_docs = {
         d.field_id: d for d in db.query(Document).filter(
             Document.vendor_id == vendor.id,
-            Document.onboarding_id == onboarding.id
+            or_(
+                Document.onboarding_id == onboarding.id,
+                Document.onboarding_id.is_(None)
+            )
         ).all()
     }
 
@@ -481,6 +569,8 @@ def submit_onboarding(
     # ensuring the compliance dashboard user does not have to re-review them.
     has_pending_reviews = False
     for doc in existing_docs.values():
+        if not doc.onboarding_id:
+            doc.onboarding_id = onboarding.id
         if doc.status != "APPROVED":
             doc.status = "UNDER_REVIEW"
             has_pending_reviews = True
@@ -493,6 +583,32 @@ def submit_onboarding(
         onboarding.status = "APPROVED"
         onboarding.approved_at = onboarding.approved_at or datetime.now(timezone.utc)
         vendor.status = "APPROVED"
+
+    # Also keep workflow assignment in sync
+    assignment = (
+        db.query(WorkflowAssignment)
+        .filter(
+            WorkflowAssignment.client_id == vendor.id,
+            WorkflowAssignment.workflow_version_id == version.id
+        )
+        .first()
+    )
+    if not assignment:
+        assignment = (
+            db.query(WorkflowAssignment)
+            .filter(
+                WorkflowAssignment.client_id == vendor.id,
+                WorkflowAssignment.workflow_id == version.workflow_template_id
+            )
+            .first()
+        )
+    if assignment:
+        assignment.status = "SUBMITTED" if has_pending_reviews else "APPROVED"
+        assignment.submitted_at = onboarding.submitted_at
+        assignment.form_responses = onboarding.form_responses
+        for doc in existing_docs.values():
+            if not doc.assignment_id:
+                doc.assignment_id = assignment.id
 
     # Mark invitation as used
     invitation.used_at = datetime.now(timezone.utc)
@@ -509,8 +625,16 @@ def submit_onboarding(
     db.add(audit)
     db.commit()
 
-    # Confirmation email to vendor
+    # Confirmation email to vendor and CC organization admin
     if vendor.contact_email and not vendor.contact_email.endswith(".local"):
+        admin_user = (
+            db.query(User)
+            .filter(User.organization_id == invitation.organization_id)
+            .order_by(User.created_at.asc())
+            .first()
+        )
+        admin_email = admin_user.email if admin_user and not admin_user.email.endswith(".local") else None
+
         notification_service.record_and_send_notification(
             db=db,
             organization_id=invitation.organization_id,
@@ -525,7 +649,8 @@ def submit_onboarding(
                 f"Our compliance and verification team will review your files shortly. You will receive an email update once your submission is reviewed.\n\n"
                 f"Thank you,\nFormGate Compliance"
             ),
-            idempotency_key=f"submit_conf_{vendor.id}_{onboarding.id}"
+            idempotency_key=f"submit_conf_{vendor.id}_{onboarding.id}",
+            cc=admin_email
         )
 
     return {

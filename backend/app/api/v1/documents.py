@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 from dateutil import parser as date_parser
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Response, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Response, UploadFile, File, Form, Request
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from app.core.config import settings
@@ -271,16 +271,11 @@ def download_document(
     if not doc:
         raise HTTPException(status_code=404, detail="Document record not found")
 
-    file_path = storage_service.get_file_path(doc.storage_path)
-
-    # Use inline or attachment based on parameter
-    media_type = doc.mime_type or "application/octet-stream"
-    disposition = "inline" if inline else "attachment"
-    return FileResponse(
-        path=file_path,
-        media_type=media_type,
-        filename=doc.original_filename if not inline else None,
-        content_disposition_type=disposition
+    return storage_service.get_download_response(
+        storage_path=doc.storage_path,
+        original_filename=doc.original_filename,
+        mime_type=doc.mime_type,
+        inline=inline
     )
 
 @router.post("/{document_id}/approve")
@@ -309,19 +304,29 @@ def approve_document(
 
     # Check if all required documents of this vendor are approved
     vendor = doc.vendor
+    # Update onboarding status for the specific form/onboarding that owns this document
+    target_onboarding = None
+    if doc.onboarding_id:
+        target_onboarding = db.query(VendorOnboarding).filter(VendorOnboarding.id == doc.onboarding_id).first()
+
+    if target_onboarding:
+        ob_docs = db.query(Document).filter(Document.onboarding_id == target_onboarding.id).all()
+        if ob_docs and all(d.status == "APPROVED" for d in ob_docs):
+            target_onboarding.status = "APPROVED"
+            target_onboarding.approved_at = datetime.now(timezone.utc)
+
+    # Also update assignment status if linked
+    if doc.assignment:
+        assign_docs = db.query(Document).filter(Document.assignment_id == doc.assignment.id).all()
+        if assign_docs and all(d.status == "APPROVED" for d in assign_docs):
+            doc.assignment.status = "APPROVED"
+            doc.assignment.approved_at = datetime.now(timezone.utc)
+
+    # Check if all documents across the vendor profile are approved
     vendor_docs = vendor.documents
     all_approved = len(vendor_docs) > 0 and all(d.status == "APPROVED" for d in vendor_docs)
     if all_approved:
         vendor.status = "APPROVED"
-        onboarding = (
-            db.query(VendorOnboarding)
-            .filter(VendorOnboarding.vendor_id == vendor.id)
-            .order_by(VendorOnboarding.created_at.desc())
-            .first()
-        )
-        if onboarding:
-            onboarding.status = "APPROVED"
-            onboarding.approved_at = datetime.now(timezone.utc)
 
     audit = AuditLog(
         organization_id=current_org.id,
@@ -336,52 +341,38 @@ def approve_document(
 
     return {"success": True, "document_id": doc.id, "status": "APPROVED", "vendor_status": vendor.status}
 
-def _generate_vendor_resubmission_link(vendor: Vendor, org_id: str, db: Session) -> Optional[str]:
-    onboarding = (
-        db.query(VendorOnboarding)
-        .filter(VendorOnboarding.vendor_id == vendor.id)
-        .order_by(VendorOnboarding.created_at.desc())
-        .first()
-    )
-    wv_id = None
-    if onboarding and onboarding.workflow_version_id:
-        wv_id = onboarding.workflow_version_id
-    elif vendor.invitations:
-        wv_id = vendor.invitations[0].workflow_version_id
-    else:
-        first_version = (
-            db.query(WorkflowVersion)
-            .join(WorkflowTemplate, WorkflowVersion.template_id == WorkflowTemplate.id)
-            .filter(WorkflowTemplate.organization_id == org_id)
-            .first()
-        )
-        wv_id = first_version.id if first_version else None
+def _detect_frontend_base(request: Optional[Request] = None) -> str:
+    app_base = settings.APP_BASE_URL.rstrip("/")
+    if request:
+        origin = request.headers.get("origin") or request.headers.get("referer")
+        if origin and (origin.startswith("http://") or origin.startswith("https://")):
+            from urllib.parse import urlparse
+            p = urlparse(origin)
+            detected = f"{p.scheme}://{p.netloc}"
+            if app_base in ("http://localhost:3000", "http://127.0.0.1:3000") and detected:
+                return detected
+    return app_base
 
-    if not wv_id:
-        return None
+def _generate_vendor_resubmission_link(
+    vendor: Vendor,
+    org_id: str,
+    db: Session,
+    base_url: Optional[str] = None,
+    doc: Optional[Document] = None
+) -> Optional[str]:
+    # Ensure client has unified portal token
+    if not vendor.portal_token:
+        vendor.portal_token = generate_secure_token(32)
+        db.commit()
 
-    raw_token = generate_secure_token(32)
-    t_hash = hash_token(raw_token)
-    expires = datetime.now(timezone.utc) + timedelta(days=settings.INVITATION_TOKEN_EXPIRE_DAYS)
-
-    new_invitation = InvitationToken(
-        organization_id=org_id,
-        workflow_version_id=wv_id,
-        vendor_id=vendor.id,
-        email=vendor.contact_email,
-        token_hash=t_hash,
-        expires_at=expires,
-        is_revoked=False
-    )
-    db.add(new_invitation)
-    db.commit()
-
-    return f"{settings.APP_BASE_URL}/vendor/onboard/{raw_token}"
+    host_base = (base_url or settings.APP_BASE_URL).rstrip("/")
+    return f"{host_base}/portal/{vendor.portal_token}"
 
 @router.post("/{document_id}/reject")
 def reject_document(
     document_id: str,
     action: DocumentReviewAction,
+    request: Request,
     current_org: Organization = Depends(get_current_org),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -409,15 +400,25 @@ def reject_document(
     vendor = doc.vendor
     vendor.status = "REJECTED"
 
-    # Update vendor onboarding status
-    onboarding = (
-        db.query(VendorOnboarding)
-        .filter(VendorOnboarding.vendor_id == vendor.id)
-        .order_by(VendorOnboarding.created_at.desc())
-        .first()
-    )
-    if onboarding:
-        onboarding.status = "REJECTED"
+    # Update vendor onboarding status for the specific workflow that owns this document
+    target_onboarding = None
+    if doc.onboarding_id:
+        target_onboarding = db.query(VendorOnboarding).filter(VendorOnboarding.id == doc.onboarding_id).first()
+    if not target_onboarding:
+        target_onboarding = (
+            db.query(VendorOnboarding)
+            .filter(VendorOnboarding.vendor_id == vendor.id)
+            .order_by(VendorOnboarding.created_at.desc())
+            .first()
+        )
+    if target_onboarding:
+        target_onboarding.status = "REJECTED"
+        if not doc.onboarding_id:
+            doc.onboarding_id = target_onboarding.id
+
+    # Update workflow assignment if linked
+    if doc.assignment:
+        doc.assignment.status = "REJECTED"
 
     audit = AuditLog(
         organization_id=current_org.id,
@@ -430,8 +431,9 @@ def reject_document(
     db.add(audit)
     db.commit()
 
-    # Generate fresh secure resubmission link
-    resubmission_url = _generate_vendor_resubmission_link(vendor, current_org.id, db)
+    # Generate fresh secure resubmission link targeting the document's specific workflow version
+    app_base = _detect_frontend_base(request)
+    resubmission_url = _generate_vendor_resubmission_link(vendor, current_org.id, db, base_url=app_base, doc=doc)
 
     # Notify vendor
     subject = f"Action Required: Document Rejected ({doc.document_type})"
@@ -457,7 +459,8 @@ def reject_document(
         reply_to=current_user.email,
         sender_name=f"{current_user.full_name} via {current_org.name}",
         cta_url=resubmission_url,
-        cta_text="Review & Replace Document"
+        cta_text="Review & Replace Document",
+        cc=current_user.email
     )
 
     return {
@@ -472,6 +475,7 @@ def reject_document(
 def request_resubmission(
     document_id: str,
     action: DocumentReviewAction,
+    request: Request,
     current_org: Organization = Depends(get_current_org),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -499,15 +503,25 @@ def request_resubmission(
     vendor = doc.vendor
     vendor.status = "IN_PROGRESS"
 
-    # Update vendor onboarding status to allow resubmission
-    onboarding = (
-        db.query(VendorOnboarding)
-        .filter(VendorOnboarding.vendor_id == vendor.id)
-        .order_by(VendorOnboarding.created_at.desc())
-        .first()
-    )
-    if onboarding:
-        onboarding.status = "RESUBMISSION_REQUESTED"
+    # Update vendor onboarding status to allow resubmission for this specific workflow
+    target_onboarding = None
+    if doc.onboarding_id:
+        target_onboarding = db.query(VendorOnboarding).filter(VendorOnboarding.id == doc.onboarding_id).first()
+    if not target_onboarding:
+        target_onboarding = (
+            db.query(VendorOnboarding)
+            .filter(VendorOnboarding.vendor_id == vendor.id)
+            .order_by(VendorOnboarding.created_at.desc())
+            .first()
+        )
+    if target_onboarding:
+        target_onboarding.status = "RESUBMISSION_REQUESTED"
+        if not doc.onboarding_id:
+            doc.onboarding_id = target_onboarding.id
+
+    # Update workflow assignment if linked
+    if doc.assignment:
+        doc.assignment.status = "RESUBMISSION_REQUESTED"
 
     audit = AuditLog(
         organization_id=current_org.id,
@@ -520,8 +534,9 @@ def request_resubmission(
     db.add(audit)
     db.commit()
 
-    # Generate fresh secure resubmission link
-    resubmission_url = _generate_vendor_resubmission_link(vendor, current_org.id, db)
+    # Generate fresh secure resubmission link targeting the document's specific workflow version
+    app_base = _detect_frontend_base(request)
+    resubmission_url = _generate_vendor_resubmission_link(vendor, current_org.id, db, base_url=app_base, doc=doc)
 
     notification_service.send_resubmission_request(
         db=db,
@@ -530,7 +545,8 @@ def request_resubmission(
         reason=action.reason.strip(),
         resubmission_url=resubmission_url,
         reply_to=current_user.email,
-        sender_name=f"{current_user.full_name} via {current_org.name}"
+        sender_name=f"{current_user.full_name} via {current_org.name}",
+        cc=current_user.email
     )
 
     return {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, Suspense } from 'react';
 import { useParams } from 'next/navigation';
 import {
   ShieldCheck,
@@ -28,7 +28,7 @@ import {
   WorkflowField
 } from '@/lib/api';
 
-export default function UnifiedClientPortalPage() {
+function UnifiedClientPortalContent() {
   const params = useParams();
   const token = (params?.token as string) || '';
 
@@ -735,5 +735,22 @@ export default function UnifiedClientPortalPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function UnifiedClientPortalPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="w-full min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-slate-700">
+          <div className="flex items-center gap-3">
+            <RefreshCw className="w-8 h-8 animate-spin text-indigo-600" />
+            <span className="text-sm font-semibold">Loading client portal...</span>
+          </div>
+        </div>
+      }
+    >
+      <UnifiedClientPortalContent />
+    </Suspense>
   );
 }

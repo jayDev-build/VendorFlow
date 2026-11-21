@@ -31,7 +31,7 @@ import { InvitationModal } from '@/components/InvitationModal';
 import { StatusBadge } from '@/components/StatusBadge';
 import { api } from '@/lib/api';
 import { Workflow, WorkflowField, WorkflowSchemaDefinition, FieldType } from '@/lib/types';
-import { PRESET_PROMPTS } from '@/app/workflows/new/page';
+import { PRESET_PROMPTS } from '@/lib/presets';
 
 import { Suspense } from 'react';
 

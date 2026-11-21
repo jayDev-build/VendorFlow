@@ -242,7 +242,8 @@ def request_document_renewal(
         body_text=body,
         idempotency_key=f"renewal_req_{doc.id}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}",
         reply_to=current_user.email,
-        sender_name=f"{current_user.full_name} via {current_org.name}"
+        sender_name=f"{current_user.full_name} via {current_org.name}",
+        cc=current_user.email
     )
 
     return {"success": True, "message": f"Renewal request dispatched to {vendor.contact_email}.", "job_id": job.id}

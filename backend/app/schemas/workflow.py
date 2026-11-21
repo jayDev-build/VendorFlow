@@ -78,23 +78,29 @@ class WorkflowFieldDefinition(BaseModel):
         if not combined and self.field_type in ("dropdown", "checkbox"):
             lbl = (self.label or "").lower()
             if self.field_type == "dropdown":
-                if any(w in lbl for w in ("structure", "type", "entity")):
-                    combined = ["Private Limited / Corporation", "LLC / LLP", "Partnership", "Sole Proprietorship"]
+                if any(w in lbl for w in ("software", "platform", "ledger", "bookkeep", "accounting")):
+                    combined = ["QuickBooks Online (QBO)", "Xero", "FreeAgent", "Sage Business Cloud", "FreshBooks", "Wave Accounting", "NetSuite", "Excel / Manual"]
+                elif any(w in lbl for w in ("structure", "type", "entity", "classification")):
+                    combined = ["LLC (Single/Multi-Member)", "S-Corporation (Form 1120-S)", "C-Corporation (Form 1120)", "Private Limited Company (Ltd)", "Limited Liability Partnership (LLP)", "Sole Proprietorship / Sole Trader"]
+                elif any(w in lbl for w in ("fiscal", "year", "reference date", "closing")):
+                    combined = ["December 31 (Calendar Year)", "March 31 (UK Standard)", "April 5 (UK Tax Year)", "June 30", "September 30", "Other"]
+                elif any(w in lbl for w in ("vat", "scheme", "sales tax")):
+                    combined = ["Standard Accrual Scheme", "Cash Accounting Scheme", "Flat Rate Scheme", "Exempt / Non-Taxable", "Overseas / Multi-State Nexus"]
+                elif any(w in lbl for w in ("pay", "frequency", "payroll", "wage")):
+                    combined = ["Bi-Weekly (Every 2 Weeks)", "Semi-Monthly (Twice Monthly)", "Monthly", "Weekly"]
+                elif any(w in lbl for w in ("country", "jurisdiction", "nation")):
+                    combined = ["United States", "United Kingdom", "Canada", "Australia", "Other"]
+                elif any(w in lbl for w in ("state", "province", "region", "formation")):
+                    combined = ["Delaware", "Wyoming", "California", "New York", "Texas", "Florida", "Nevada", "Illinois", "Other US State"]
                 elif any(w in lbl for w in ("payment", "term", "invoice")):
-                    combined = ["Net 30", "Net 60", "Net 15", "Immediate / Advance"]
-                elif any(w in lbl for w in ("tax", "gst", "vat", "filing")):
-                    combined = ["Regular Registered", "Composition Scheme", "Exempt / Non-Taxable", "Overseas Entity"]
-                elif any(w in lbl for w in ("country", "nation")):
-                    combined = ["United States", "India", "United Kingdom", "Canada", "Australia", "Other"]
-                elif any(w in lbl for w in ("state", "province", "region")):
-                    combined = ["Region North", "Region South", "Region East", "Region West"]
+                    combined = ["Net 30", "Net 60", "Net 15", "Due on Receipt"]
                 else:
                     combined = ["Option 1", "Option 2", "Option 3"]
             elif self.field_type == "checkbox":
-                if any(w in lbl for w in ("service", "product", "sector", "category", "scope", "offering")):
-                    combined = ["Primary Consulting", "Technical Implementation", "Maintenance & Support", "Other Services"]
-                elif any(w in lbl for w in ("certif", "compliance", "standard", "audit", "security")):
-                    combined = ["ISO 9001 / Quality Management", "SOC 2 Type II Certified", "GDPR / Privacy Compliant", "Industry Safety Certified"]
+                if any(w in lbl for w in ("agree", "consent", "term", "declaration", "policy", "auth", "engagement", "aml")):
+                    combined = ["We confirm that all submitted financial records and corporate details are complete, accurate, and authorized for professional bookkeeping and tax preparation."]
+                elif any(w in lbl for w in ("service", "scope", "offering", "requirement")):
+                    combined = ["Monthly Bookkeeping & Reconciliation", "VAT / Sales Tax Filings", "Statutory Accounts Preparation", "Payroll Processing", "Corporate Tax Return (1120/CT600)"]
                 else:
                     combined = ["I certify that all provided details and documents are authentic and accurate"]
 
@@ -132,7 +138,7 @@ class WorkflowSchemaDefinition(BaseModel):
         return v
 
 class WorkflowGenerateRequest(BaseModel):
-    prompt: str = Field(..., min_length=5, description="Plain-English vendor onboarding requirements")
+    prompt: str = Field(..., min_length=5, description="Plain-English form, intake, or onboarding requirements")
     workflow_name: Optional[str] = None
     vendor_category: Optional[str] = "General"
     description: Optional[str] = None
@@ -223,6 +229,7 @@ class InvitationResponse(BaseModel):
     vendor_id: Optional[str]
     workflow_version_id: str
     invitation_url: str
+    portal_url: Optional[str] = None
     expires_at: Any
     is_revoked: bool
     used_at: Optional[Any]

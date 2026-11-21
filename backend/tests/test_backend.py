@@ -34,6 +34,12 @@ app.dependency_overrides[get_db] = override_get_db
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_db():
+    from app.core.config import settings
+    settings.OLLAMA_ENABLED = False
+    settings.RESEND_API_KEY = ""
+    notification_service.resend_api_key = None
+    notification_service.smtp_host = None
+    notification_service.smtp_user = None
     Base.metadata.drop_all(bind=test_engine)
     Base.metadata.create_all(bind=test_engine)
     yield
@@ -50,31 +56,72 @@ def client():
 
 def test_ai_workflow_parser_schema():
     prompt = (
-        "Collect GST certificate, PAN card, business registration certificate, "
-        "bank proof, and insurance certificate. Insurance must have an expiry date. "
-        "All documents require administrator approval. Send reminders 30 days before expiry."
+        "Onboard new US LLC client for monthly bookkeeping. Collect IRS Form W-9, "
+        "EIN confirmation letter CP 575, 12 months business checking bank statements, "
+        "and prior year corporate tax return Form 1120-S. "
+        "All documents require administrator approval. Send reminders 30 days before filing deadline."
     )
     schema = generate_deterministic_fallback(
         prompt=prompt,
-        workflow_name="Standard Vendor Onboarding",
-        vendor_category="General"
+        workflow_name="US Corporate Client Bookkeeping Onboarding",
+        vendor_category="US Accounting & Bookkeeping"
     )
 
-    assert schema.name == "Standard Vendor Onboarding"
+    assert schema.name == "US Corporate Client Bookkeeping Onboarding"
     assert schema.approval_required is True
     assert 30 in schema.reminder_rules
     assert len(schema.fields) >= 5
 
-    # Check that insurance has expiry tracking enabled
-    insurance_field = next((f for f in schema.fields if "insurance" in f.id.lower() or "insurance" in f.label.lower()), None)
-    assert insurance_field is not None
-    assert insurance_field.track_expiry is True
-    assert insurance_field.field_type == "file_upload"
+    # Check that bank statements or tax forms are file uploads
+    w9_field = next((f for f in schema.fields if "w9" in f.id.lower() or "w-9" in f.label.lower()), None)
+    assert w9_field is not None
+    assert w9_field.field_type == "file_upload"
 
-    # Check GST and PAN are file uploads
-    gst_field = next((f for f in schema.fields if "gst" in f.id.lower()), None)
-    assert gst_field is not None
-    assert gst_field.field_type == "file_upload"
+    # Check bank statement field
+    bank_field = next((f for f in schema.fields if "bank" in f.id.lower()), None)
+    assert bank_field is not None
+    assert bank_field.field_type == "file_upload"
+
+def test_universal_ai_workflow_parser_industries():
+    # 1. Test US Bookkeeping & Tax Onboarding
+    us_prompt = "Onboard new Delaware LLC client for monthly bookkeeping with IRS Form W-9, EIN letter, and QuickBooks Online sync."
+    us_schema = generate_deterministic_fallback(us_prompt)
+    assert us_schema.vendor_category == "US Accounting & Bookkeeping"
+    field_types = {f.field_type for f in us_schema.fields}
+    assert "email" in field_types
+    assert "phone" in field_types
+    assert "dropdown" in field_types
+    assert "checkbox" in field_types
+    assert "file_upload" in field_types
+
+    # 2. Test UK Limited Company & Year-End Accounts
+    uk_prompt = "Onboard UK private limited company (Ltd) for annual statutory accounts, Companies House CRN, and HMRC UTR."
+    uk_schema = generate_deterministic_fallback(uk_prompt)
+    assert uk_schema.vendor_category == "UK Accounting & Bookkeeping"
+    crn_field = next(f for f in uk_schema.fields if "company_number" in f.id or "crn" in f.label.lower())
+    assert crn_field is not None
+    assert any(f.field_type == "file_upload" for f in uk_schema.fields)
+
+    # 3. Test Payroll & Wage Compliance
+    payroll_prompt = "Client payroll compliance onboarding with Form 941, W-2 reporting, and direct deposit wage withholdings."
+    payroll_schema = generate_deterministic_fallback(payroll_prompt)
+    assert payroll_schema.vendor_category == "Payroll & Wage Compliance"
+    assert any("payroll" in f.id.lower() for f in payroll_schema.fields)
+
+def test_repair_truncated_json_recovers_model_output():
+    from app.services.ai_workflow_generator import repair_truncated_json
+    # Simulate exact local Ollama unterminated string cutoff
+    truncated_llm_output = (
+        '{"name": "US Client Bookkeeping & Tax Onboarding", '
+        '"vendor_category": "US Accounting & Bookkeeping", '
+        '"fields": [{"id": "field_doc_w9", "label": "IRS Form W-9 Signed", "field_type": "file_upload", "track_expiry": false}], '
+        '"warnings": ["Please verify that the EIN matches IRS records and legal entity'
+    )
+    repaired = repair_truncated_json(truncated_llm_output)
+    assert repaired is not None
+    assert repaired["name"] == "US Client Bookkeeping & Tax Onboarding"
+    assert len(repaired["fields"]) == 1
+    assert repaired["fields"][0]["id"] == "field_doc_w9"
 
 def test_user_signup_and_auth(client):
     signup_data = {
@@ -562,10 +609,10 @@ def test_resubmission_and_rejection_link_generation(client):
     resubmit_data = resubmit_res.json()
     assert resubmit_data["status"] == "RESUBMISSION_REQUESTED"
     assert "resubmission_url" in resubmit_data
-    assert "/vendor/onboard/" in resubmit_data["resubmission_url"]
+    assert "/portal/" in resubmit_data["resubmission_url"] or "/vendor/onboard/" in resubmit_data["resubmission_url"]
 
     # Extract fresh resubmission token from returned URL
-    resub_token = resubmit_data["resubmission_url"].split("/vendor/onboard/")[-1]
+    resub_token = resubmit_data["resubmission_url"].split("/portal/")[-1] if "/portal/" in resubmit_data["resubmission_url"] else resubmit_data["resubmission_url"].split("/vendor/onboard/")[-1]
 
     # Vendor visits portal using new resubmission token
     portal_res2 = client.get(f"/api/v1/public/invitations/{resub_token}")
@@ -587,7 +634,7 @@ def test_resubmission_and_rejection_link_generation(client):
     reject_data = reject_res.json()
     assert reject_data["status"] == "REJECTED"
     assert "resubmission_url" in reject_data
-    reject_token = reject_data["resubmission_url"].split("/vendor/onboard/")[-1]
+    reject_token = reject_data["resubmission_url"].split("/portal/")[-1] if "/portal/" in reject_data["resubmission_url"] else reject_data["resubmission_url"].split("/vendor/onboard/")[-1]
 
     # Vendor visits portal via reject token
     portal_res3 = client.get(f"/api/v1/public/invitations/{reject_token}")
@@ -694,7 +741,7 @@ def test_resubmission_preserves_prior_approved_documents(client):
     )
     assert resub_b.status_code == 200
     resub_url = resub_b.json()["resubmission_url"]
-    resub_token = resub_url.split("/vendor/onboard/")[-1]
+    resub_token = resub_url.split("/portal/")[-1] if "/portal/" in resub_url else resub_url.split("/vendor/onboard/")[-1]
 
     # Vendor visits resubmission portal
     portal_res = client.get(f"/api/v1/public/invitations/{resub_token}")
@@ -1034,6 +1081,502 @@ def test_direct_shareable_link_without_email(client):
     portal_data = portal_res.json()
     assert portal_data["valid"] is True
     assert portal_data["workflow_name"] == published_wf["name"]
+
+def test_multi_form_document_rejection_routes_to_correct_workflow(client):
+    # 1. Sign up independent Admin for this test
+    signup_res = client.post("/api/v1/auth/signup", json={
+        "email": "multi_admin@bookkeeping-uk.com",
+        "password": "Password123!",
+        "full_name": "Multi Admin",
+        "organization_name": "Multi Form Accounting Ltd"
+    })
+    assert signup_res.status_code == 201
+    token = signup_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 2. Create Workflow F1 (KYC) with docs D1 and D2
+    schema_f1 = {
+        "name": "Bookkeeping Form 1 (KYC)",
+        "vendor_category": "Accounting",
+        "fields": [
+            {"id": "field_name", "label": "Client Legal Name", "field_type": "short_text", "required": True},
+            {"id": "doc_d1", "label": "Bank Statement", "field_type": "file_upload", "document_category": "Financial", "required": True},
+            {"id": "doc_d2", "label": "Passport / ID", "field_type": "file_upload", "document_category": "Identification", "required": True}
+        ],
+        "approval_required": True
+    }
+    wf1_res = client.post("/api/v1/workflows", json={
+        "name": "Bookkeeping Form 1 (KYC)",
+        "vendor_category": "Accounting",
+        "description": "Form 1 with D1 and D2",
+        "schema_definition": schema_f1,
+        "approval_required": True
+    }, headers=headers)
+    assert wf1_res.status_code == 201
+    wf1_id = wf1_res.json()["id"]
+    client.post(f"/api/v1/workflows/{wf1_id}/publish", headers=headers)
+
+    # 3. Create Workflow F2 (Tax & VAT) with docs D3 and D4
+    schema_f2 = {
+        "name": "Bookkeeping Form 2 (Tax & VAT)",
+        "vendor_category": "Accounting",
+        "fields": [
+            {"id": "field_tax_reg", "label": "Tax Registration Number", "field_type": "short_text", "required": True},
+            {"id": "doc_d3", "label": "VAT Registration Certificate", "field_type": "file_upload", "document_category": "Tax", "required": True},
+            {"id": "doc_d4", "label": "Annual Accounts", "field_type": "file_upload", "document_category": "Financial", "required": True}
+        ],
+        "approval_required": True
+    }
+    wf2_res = client.post("/api/v1/workflows", json={
+        "name": "Bookkeeping Form 2 (Tax & VAT)",
+        "vendor_category": "Accounting",
+        "description": "Form 2 with D3 and D4",
+        "schema_definition": schema_f2,
+        "approval_required": True
+    }, headers=headers)
+    assert wf2_res.status_code == 201
+    wf2_id = wf2_res.json()["id"]
+    client.post(f"/api/v1/workflows/{wf2_id}/publish", headers=headers)
+
+    # 4. Send F1 to client
+    client_email = "dual_client@bookkeeping-uk.com"
+    inv1_res = client.post(f"/api/v1/workflows/{wf1_id}/invitations", json={
+        "email": client_email,
+        "vendor_name": "Dual Flow Client Ltd"
+    }, headers=headers)
+    assert inv1_res.status_code == 200
+    token_f1 = inv1_res.json()["invitation_url"].split("/vendor/onboard/")[-1]
+
+    # Upload D1 and D2 for F1
+    doc_d1_res = client.post(
+        f"/api/v1/public/invitations/{token_f1}/documents",
+        data={"field_id": "doc_d1", "document_type": "Bank Statement"},
+        files={"file": ("bank_statement_v1.pdf", b"%PDF-1.4 D1 bank statement", "application/pdf")}
+    )
+    assert doc_d1_res.status_code == 200
+    doc_d1_id = doc_d1_res.json()["document_id"]
+
+    doc_d2_res = client.post(
+        f"/api/v1/public/invitations/{token_f1}/documents",
+        data={"field_id": "doc_d2", "document_type": "Passport / ID"},
+        files={"file": ("passport_id.pdf", b"%PDF-1.4 D2 passport", "application/pdf")}
+    )
+    assert doc_d2_res.status_code == 200
+
+    # Submit Form 1
+    sub1_res = client.post(f"/api/v1/public/invitations/{token_f1}/submit", json={
+        "form_responses": {"field_name": "Dual Flow Client Ltd"}
+    })
+    assert sub1_res.status_code == 200
+
+    # 5. Later, send F2 to the SAME client
+    inv2_res = client.post(f"/api/v1/workflows/{wf2_id}/invitations", json={
+        "email": client_email,
+        "vendor_name": "Dual Flow Client Ltd"
+    }, headers=headers)
+    assert inv2_res.status_code == 200
+    token_f2 = inv2_res.json()["invitation_url"].split("/vendor/onboard/")[-1]
+
+    # Upload D3 and D4 for F2
+    doc_d3_res = client.post(
+        f"/api/v1/public/invitations/{token_f2}/documents",
+        data={"field_id": "doc_d3", "document_type": "VAT Registration Certificate"},
+        files={"file": ("vat_cert.pdf", b"%PDF-1.4 D3 vat cert", "application/pdf")}
+    )
+    assert doc_d3_res.status_code == 200
+
+    doc_d4_res = client.post(
+        f"/api/v1/public/invitations/{token_f2}/documents",
+        data={"field_id": "doc_d4", "document_type": "Annual Accounts"},
+        files={"file": ("accounts.pdf", b"%PDF-1.4 D4 accounts", "application/pdf")}
+    )
+    assert doc_d4_res.status_code == 200
+
+    # Submit Form 2
+    sub2_res = client.post(f"/api/v1/public/invitations/{token_f2}/submit", json={
+        "form_responses": {"field_tax_reg": "GB998877665"}
+    })
+    assert sub2_res.status_code == 200
+
+    # 6. Admin rejects document D1 (which belongs to Form 1)
+    reject_reason = "Bank statement is older than 3 months. Please upload recent one."
+    reject_res = client.post(
+        f"/api/v1/documents/{doc_d1_id}/reject",
+        json={"action": "REJECT", "reason": reject_reason},
+        headers=headers
+    )
+    assert reject_res.status_code == 200
+    reject_data = reject_res.json()
+    assert reject_data["status"] == "REJECTED"
+    assert "resubmission_url" in reject_data
+    assert reject_data["resubmission_url"] is not None
+
+    # 7. Extract the resubmission token from the email link
+    resub_token = reject_data["resubmission_url"].split("/portal/")[-1] if "/portal/" in reject_data["resubmission_url"] else reject_data["resubmission_url"].split("/vendor/onboard/")[-1]
+
+    # 8. Open the client portal using the resubmission link
+    portal_res = client.get(f"/api/v1/public/invitations/{resub_token}")
+    assert portal_res.status_code == 200
+    portal_data = portal_res.json()
+
+    # CRITICAL ASSERTIONS:
+    # A. The portal MUST display Form 1 (KYC), NOT the later Form 2!
+    assert portal_data["workflow_name"] == "Bookkeeping Form 1 (KYC)"
+    field_ids = [f["id"] for f in portal_data["schema_definition"]["fields"]]
+    assert "doc_d1" in field_ids
+    assert "doc_d2" in field_ids
+    assert "doc_d3" not in field_ids
+    assert "doc_d4" not in field_ids
+
+    # B. The portal MUST show the rejected document with the reviewer reason
+    assert len(portal_data["existing_documents"]) >= 1
+    d1_item = next(d for d in portal_data["existing_documents"] if d["field_id"] == "doc_d1")
+    assert d1_item["status"] == "REJECTED"
+    assert d1_item["review_reason"] == reject_reason
+
+    # C. Existing form response for Form 1 must be preserved
+    assert portal_data["existing_responses"].get("field_name") == "Dual Flow Client Ltd"
+
+    # 9. Client uploads replacement for D1 using the resubmission link
+    replace_res = client.post(
+        f"/api/v1/public/invitations/{resub_token}/documents",
+        data={"field_id": "doc_d1", "document_type": "Bank Statement"},
+        files={"file": ("recent_bank_statement.pdf", b"%PDF-1.4 replacement bank statement", "application/pdf")}
+    )
+    assert replace_res.status_code == 200
+    assert replace_res.json()["document_id"] == doc_d1_id
+
+    # 10. Client resubmits Form 1
+    resubmit_res = client.post(
+        f"/api/v1/public/invitations/{resub_token}/submit",
+        json={"form_responses": {"field_name": "Dual Flow Client Ltd"}}
+    )
+    assert resubmit_res.status_code == 200
+
+    # 11. Verify D1 status transitioned to UNDER_REVIEW
+    d1_check = client.get(f"/api/v1/documents/{doc_d1_id}", headers=headers).json()
+    assert d1_check["status"] == "UNDER_REVIEW"
+    assert d1_check["original_filename"] == "recent_bank_statement.pdf"
+
+def test_unified_client_portal_architecture(client):
+    # 1. Sign up fresh admin
+    signup_res = client.post("/api/v1/auth/signup", json={
+        "email": "unified_admin@accounting.co.uk",
+        "password": "Password123!",
+        "full_name": "Portal Admin",
+        "organization_name": "Unified Accounting LLP"
+    })
+    assert signup_res.status_code == 201
+    token = signup_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 2. Create Workflow 1 (KYC)
+    wf1_res = client.post("/api/v1/workflows", json={
+        "name": "Client KYC Intake",
+        "vendor_category": "Accounting",
+        "description": "Standard client identification and banking",
+        "schema_definition": {
+            "name": "Client KYC Intake",
+            "vendor_category": "Accounting",
+            "approval_required": True,
+            "fields": [
+                {"id": "field_corp_name", "label": "Company Legal Name", "field_type": "short_text", "required": True},
+                {"id": "doc_bank_stmt", "label": "3-Month Bank Statement", "field_type": "file_upload", "required": True}
+            ]
+        },
+        "approval_required": True
+    }, headers=headers)
+    assert wf1_res.status_code == 201
+    wf1_id = wf1_res.json()["id"]
+    client.post(f"/api/v1/workflows/{wf1_id}/publish", headers=headers)
+
+    # 3. Create Workflow 2 (Tax & VAT)
+    wf2_res = client.post("/api/v1/workflows", json={
+        "name": "Corporate Tax & VAT Intake",
+        "vendor_category": "Tax",
+        "description": "HMRC corporate tax returns and VAT certificates",
+        "schema_definition": {
+            "name": "Corporate Tax & VAT Intake",
+            "vendor_category": "Tax",
+            "approval_required": True,
+            "fields": [
+                {"id": "field_vat_num", "label": "VAT Number", "field_type": "short_text", "required": True},
+                {"id": "doc_vat_cert", "label": "VAT Certificate", "field_type": "file_upload", "required": True}
+            ]
+        },
+        "approval_required": True
+    }, headers=headers)
+    assert wf2_res.status_code == 201
+    wf2_id = wf2_res.json()["id"]
+    client.post(f"/api/v1/workflows/{wf2_id}/publish", headers=headers)
+
+    client_email = "direct_client@uk-enterprise.com"
+
+    # 4. Invite client to Workflow 1
+    inv1_res = client.post(f"/api/v1/workflows/{wf1_id}/invitations", json={
+        "email": client_email,
+        "vendor_name": "UK Enterprise Solutions"
+    }, headers=headers)
+    assert inv1_res.status_code == 200
+    inv1_data = inv1_res.json()
+    assert "portal_url" in inv1_data
+    assert "/portal/" in inv1_data["portal_url"]
+    portal_token_1 = inv1_data["portal_url"].split("/portal/")[-1]
+
+    # 5. Later, invite SAME client to Workflow 2
+    inv2_res = client.post(f"/api/v1/workflows/{wf2_id}/invitations", json={
+        "email": client_email,
+        "vendor_name": "UK Enterprise Solutions"
+    }, headers=headers)
+    assert inv2_res.status_code == 200
+    inv2_data = inv2_res.json()
+    portal_token_2 = inv2_data["portal_url"].split("/portal/")[-1]
+
+    # CRITICAL: Both invitations must share the SAME unified portal_token!
+    assert portal_token_1 == portal_token_2, "Client must have one persistent portal token across all forms!"
+    portal_token = portal_token_1
+
+    # 6. Fetch unified portal before submissions: shows 2 assignments in progress!
+    portal_initial = client.get(f"/api/v1/portal/{portal_token}")
+    assert portal_initial.status_code == 200
+    p_data = portal_initial.json()
+    assert p_data["valid"] is True
+    assert p_data["client_name"] == "UK Enterprise Solutions"
+    assert p_data["client_email"] == client_email
+    assert len(p_data["action_required"]) == 0
+    assert len(p_data["assignments"]) == 2
+
+    assign1 = next(a for a in p_data["assignments"] if a["workflow_id"] == wf1_id)
+    assign2 = next(a for a in p_data["assignments"] if a["workflow_id"] == wf2_id)
+    assert assign1["workflow_name"] == "Client KYC Intake"
+    assert assign2["workflow_name"] == "Corporate Tax & VAT Intake"
+
+    # 7. Upload document and submit Form 1 via unified portal API
+    upload1_res = client.post(
+        f"/api/v1/portal/{portal_token}/assignments/{assign1['id']}/documents",
+        data={"field_id": "doc_bank_stmt", "document_type": "3-Month Bank Statement"},
+        files={"file": ("bank_stmt_initial.pdf", b"%PDF-1.4 bank statement", "application/pdf")}
+    )
+    assert upload1_res.status_code == 200
+    doc1_id = upload1_res.json()["document_id"]
+    assert upload1_res.json()["assignment_id"] == assign1["id"]
+
+    sub1_res = client.post(
+        f"/api/v1/portal/{portal_token}/assignments/{assign1['id']}/submit",
+        json={"form_responses": {"field_corp_name": "UK Enterprise Solutions Ltd"}}
+    )
+    assert sub1_res.status_code == 200
+
+    # 8. Upload document and submit Form 2 via unified portal API
+    upload2_res = client.post(
+        f"/api/v1/portal/{portal_token}/assignments/{assign2['id']}/documents",
+        data={"field_id": "doc_vat_cert", "document_type": "VAT Certificate"},
+        files={"file": ("vat_cert_initial.pdf", b"%PDF-1.4 vat cert", "application/pdf")}
+    )
+    assert upload2_res.status_code == 200
+    doc2_id = upload2_res.json()["document_id"]
+    assert upload2_res.json()["assignment_id"] == assign2["id"]
+
+    sub2_res = client.post(
+        f"/api/v1/portal/{portal_token}/assignments/{assign2['id']}/submit",
+        json={"form_responses": {"field_vat_num": "GB112233445"}}
+    )
+    assert sub2_res.status_code == 200
+
+    # 9. Admin rejects Form 1's document (doc1_id)
+    reject_reason = "Statement page 2 is missing transactions."
+    reject_res = client.post(
+        f"/api/v1/documents/{doc1_id}/reject",
+        json={"action": "REJECT", "reason": reject_reason},
+        headers=headers
+    )
+    assert reject_res.status_code == 200
+    resub_link = reject_res.json()["resubmission_url"]
+    # Rejection link MUST point directly to the unified portal!
+    assert f"/portal/{portal_token}" in resub_link
+
+    # 10. Client re-opens unified portal:
+    portal_after_reject = client.get(f"/api/v1/portal/{portal_token}").json()
+    # At top of page: Action Required MUST contain exactly the rejected document!
+    assert len(portal_after_reject["action_required"]) == 1
+    action_item = portal_after_reject["action_required"][0]
+    assert action_item["document_id"] == doc1_id
+    assert action_item["document_type"] == "3-Month Bank Statement"
+    assert action_item["workflow_name"] == "Client KYC Intake"
+    assert action_item["review_reason"] == reject_reason
+    assert action_item["status"] == "REJECTED"
+
+    # Both assignments are still present below Action Required:
+    assert len(portal_after_reject["assignments"]) == 2
+    f2_assign = next(a for a in portal_after_reject["assignments"] if a["workflow_id"] == wf2_id)
+    assert f2_assign["status"] == "SUBMITTED"
+    assert len(f2_assign["existing_documents"]) == 1
+    assert f2_assign["existing_documents"][0]["id"] == doc2_id
+
+    # 11. Client re-uploads replacement for doc1 using unified portal endpoint
+    replace_res = client.post(
+        f"/api/v1/portal/{portal_token}/assignments/{assign1['id']}/documents",
+        data={"field_id": "doc_bank_stmt", "document_type": "3-Month Bank Statement"},
+        files={"file": ("bank_stmt_complete.pdf", b"%PDF-1.4 full statement", "application/pdf")}
+    )
+    assert replace_res.status_code == 200
+    assert replace_res.json()["document_id"] == doc1_id
+    assert replace_res.json()["has_replacement"] is True
+
+    # 12. Client re-submits Form 1
+    client.post(
+        f"/api/v1/portal/{portal_token}/assignments/{assign1['id']}/submit",
+        json={"form_responses": {"field_corp_name": "UK Enterprise Solutions Ltd"}}
+    )
+
+    # 13. Portal state is now clean: Action Required is empty, both forms submitted!
+    portal_final = client.get(f"/api/v1/portal/{portal_token}").json()
+    assert len(portal_final["action_required"]) == 0
+    f1_final = next(a for a in portal_final["assignments"] if a["workflow_id"] == wf1_id)
+    assert f1_final["status"] == "SUBMITTED"
+    assert f1_final["existing_documents"][0]["original_filename"] == "bank_stmt_complete.pdf"
+    assert f1_final["existing_documents"][0]["status"] == "UNDER_REVIEW"
+
+
+def test_notifications_cc_user_email(client):
+    from app.models.models import NotificationJob
+    db = TestingSessionLocal()
+    try:
+        # 1. Sign up user
+        user_email = "compliance_lead@firm.co.uk"
+        signup_res = client.post("/api/v1/auth/signup", json={
+            "email": user_email,
+            "password": "Password123!",
+            "full_name": "Compliance Lead",
+            "organization_name": "Compliance Firm Ltd"
+        })
+        assert signup_res.status_code == 201
+        headers = {"Authorization": f"Bearer {signup_res.json()['access_token']}"}
+
+        # 2. Create and publish workflow
+        wf_res = client.post("/api/v1/workflows", json={
+            "name": "CC Notification Audit Workflow",
+            "vendor_category": "Legal",
+            "description": "Testing CC functionality on sending emails",
+            "schema_definition": {
+                "name": "CC Notification Audit Workflow",
+                "vendor_category": "Legal",
+                "fields": [
+                    {"id": "doc_id_proof", "label": "ID Proof", "field_type": "file_upload", "required": True}
+                ]
+            },
+            "approval_required": True
+        }, headers=headers)
+        assert wf_res.status_code == 201
+        wf_id = wf_res.json()["id"]
+        client.post(f"/api/v1/workflows/{wf_id}/publish", headers=headers)
+
+        # 3. Send invitation to client
+        client_email = "applicant_contact@external.com"
+        inv_res = client.post(f"/api/v1/workflows/{wf_id}/invitations", json={
+            "email": client_email,
+            "vendor_name": "External Applicant"
+        }, headers=headers)
+        assert inv_res.status_code == 200
+
+        # 4. Verify Invitation NotificationJob has user's email in CC
+        inv_job = db.query(NotificationJob).filter(
+            NotificationJob.recipient_email == client_email,
+            NotificationJob.notification_type == "INVITATION"
+        ).order_by(NotificationJob.created_at.desc()).first()
+        assert inv_job is not None
+        assert inv_job.cc_email == user_email
+
+        # 5. Client uploads document and submits
+        raw_token = inv_res.json()["invitation_url"].split("/vendor/onboard/")[-1]
+        up_res = client.post(
+            f"/api/v1/public/invitations/{raw_token}/documents",
+            data={"field_id": "doc_id_proof", "document_type": "ID Proof"},
+            files={"file": ("passport.pdf", b"%PDF-1.4 passport sample", "application/pdf")}
+        )
+        assert up_res.status_code == 200
+        doc_id = up_res.json()["document_id"]
+
+        client.post(f"/api/v1/public/invitations/{raw_token}/submit", json={"form_responses": {}})
+
+        # 6. Admin rejects document
+        reject_res = client.post(
+            f"/api/v1/documents/{doc_id}/reject",
+            json={"action": "REJECT", "reason": "Expired passport"},
+            headers=headers
+        )
+        assert reject_res.status_code == 200
+
+        # 7. Verify Rejection NotificationJob has user's email in CC
+        reject_job = db.query(NotificationJob).filter(
+            NotificationJob.document_id == doc_id,
+            NotificationJob.notification_type == "DOCUMENT_REJECTED"
+        ).order_by(NotificationJob.created_at.desc()).first()
+        assert reject_job is not None
+        assert reject_job.cc_email == user_email
+
+        # 8. Admin requests resubmission
+        resub_res = client.post(
+            f"/api/v1/documents/{doc_id}/request-resubmission",
+            json={"action": "REQUEST_RESUBMISSION", "reason": "Upload higher resolution copy"},
+            headers=headers
+        )
+        assert resub_res.status_code == 200
+
+        resub_job = db.query(NotificationJob).filter(
+            NotificationJob.document_id == doc_id,
+            NotificationJob.notification_type == "RESUBMISSION_REQUEST"
+        ).order_by(NotificationJob.created_at.desc()).first()
+        assert resub_job is not None
+        assert resub_job.cc_email == user_email
+    finally:
+        db.close()
+
+
+def test_health_endpoint_and_supabase_pooler_compatibility(client):
+    from app.core.database import sanitize_db_url
+    from app.core.config import settings
+
+    # 1. Verify GET /health executes SELECT 1 and returns {"status": "ok"}
+    res = client.get("/health")
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok"}
+
+    # 2. Verify GET /api/v1/health also reports status "ok"
+    api_res = client.get("/api/v1/health")
+    assert api_res.status_code == 200
+    assert api_res.json()["status"] == "ok"
+
+    # 3. Verify Supabase PostgreSQL Transaction Pooler URL normalization (port 6543, postgres:// prefix)
+    raw_supabase_url = "postgres://postgres.dlueuhvrxzqptblhguwh:MyPassword%40123@aws-0-eu-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+    sanitized = sanitize_db_url(raw_supabase_url)
+    assert sanitized.startswith("postgresql+psycopg2://")
+    assert "pooler.supabase.com:6543" in sanitized
+    assert "MyPassword%40123" in sanitized
+
+    # 4. Verify FRONTEND_URL is configured and CORS responds properly to production & dev frontend origins
+    assert settings.FRONTEND_URL is not None
+    cors_prod = client.options(
+        "/health",
+        headers={
+            "Origin": "https://formgate.in",
+            "Access-Control-Request-Method": "GET"
+        }
+    )
+    assert cors_prod.status_code == 200
+    assert cors_prod.headers.get("access-control-allow-origin") == "https://formgate.in"
+
+    cors_local = client.options(
+        "/health",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "GET"
+        }
+    )
+    assert cors_local.status_code == 200
+    assert cors_local.headers.get("access-control-allow-origin") == "http://localhost:3000"
+
+
 
 
 

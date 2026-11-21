@@ -3,7 +3,7 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Optional, List, Union
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from app.core.config import settings
@@ -27,7 +27,8 @@ class NotificationService:
         subject: str,
         html_content: str,
         reply_to: Optional[str] = None,
-        from_name: Optional[str] = None
+        from_name: Optional[str] = None,
+        cc: Optional[List[str]] = None
     ) -> bool:
         if not self.smtp_host or not self.smtp_user:
             return False
@@ -37,6 +38,10 @@ class NotificationService:
             sender_addr = self.sender_email or self.smtp_user
             msg["From"] = f"{from_name} <{sender_addr}>" if from_name else sender_addr
             msg["To"] = to_email
+            recipients = [to_email]
+            if cc:
+                msg["Cc"] = ", ".join(cc)
+                recipients.extend(cc)
             if reply_to:
                 msg["Reply-To"] = reply_to
             msg.attach(MIMEText(html_content, "html"))
@@ -46,7 +51,7 @@ class NotificationService:
                     server.starttls()
                 if self.smtp_user and self.smtp_password:
                     server.login(self.smtp_user, self.smtp_password)
-                server.sendmail(sender_addr, [to_email], msg.as_string())
+                server.sendmail(sender_addr, recipients, msg.as_string())
             return True
         except Exception as e:
             logger.error(f"Failed to send email via SMTP: {e}")
@@ -58,7 +63,8 @@ class NotificationService:
         subject: str,
         html_content: str,
         reply_to: Optional[str] = None,
-        from_name: Optional[str] = None
+        from_name: Optional[str] = None,
+        cc: Optional[List[str]] = None
     ) -> bool:
         if not self.resend_api_key:
             return False
@@ -72,6 +78,8 @@ class NotificationService:
                 "subject": subject,
                 "html": html_content,
             }
+            if cc:
+                params["cc"] = cc
             if reply_to:
                 params["reply_to"] = reply_to
             resend.Emails.send(params)
@@ -94,12 +102,14 @@ class NotificationService:
         reply_to: Optional[str] = None,
         sender_name: Optional[str] = None,
         cta_url: Optional[str] = None,
-        cta_text: Optional[str] = None
+        cta_text: Optional[str] = None,
+        cc: Optional[Union[str, List[str]]] = None
     ) -> NotificationJob:
         """
         Idempotently sends and records a notification.
         If an idempotency key already exists, returns existing job to prevent duplicates.
-        Incorporates dashboard user identity into From header, Reply-To header, and email footer.
+        Incorporates dashboard user identity into From header, Reply-To header, CC header, and email footer.
+        CCs user email so the sending email also appears in the user's email account.
         """
         existing = db.query(NotificationJob).filter(
             NotificationJob.idempotency_key == idempotency_key
@@ -108,12 +118,28 @@ class NotificationService:
             logger.info(f"Notification with idempotency key '{idempotency_key}' already processed. Skipping duplicate.")
             return existing
 
+        # Process and normalize CC recipients
+        cc_list: List[str] = []
+        if cc:
+            if isinstance(cc, str):
+                cc_list = [c.strip() for c in cc.split(",") if c.strip()]
+            elif isinstance(cc, list):
+                cc_list = [c.strip() for c in cc if c and c.strip()]
+        elif reply_to and "@" in reply_to and not reply_to.endswith(".local"):
+            # Automatically CC the sending user so it appears in their mail account
+            cc_list = [reply_to.strip()]
+
+        # Filter out recipient email to prevent sending duplicate to same address
+        cc_list = [c for c in cc_list if c.lower() != recipient_email.lower()]
+        cc_str = ", ".join(cc_list) if cc_list else None
+
         job = NotificationJob(
             organization_id=organization_id,
             vendor_id=vendor_id,
             document_id=document_id,
             notification_type=notification_type,
             recipient_email=recipient_email,
+            cc_email=cc_str,
             status="PENDING",
             idempotency_key=idempotency_key
         )
@@ -146,12 +172,14 @@ class NotificationService:
         if reply_to or sender_name:
             display_sender = sender_name or "Compliance Manager"
             contact_line = f'Direct replies to this email will be delivered to: <a href="mailto:{reply_to}" style="color: #4f46e5; text-decoration: underline; font-weight: 600;">{reply_to}</a>' if reply_to else ''
+            cc_line = f'<div style="font-size: 12px; color: #64748b; margin-top: 4px;">CC: {cc_str}</div>' if cc_str else ''
             sender_card = f"""
             <div style="background-color: #f8fafc; border-left: 4px solid #6366f1; padding: 14px 18px; margin: 24px 0 16px 0; border-radius: 6px;">
                 <div style="font-size: 13px; font-weight: 700; color: #1e293b;">
                     Sent by: {display_sender}
                 </div>
                 {f'<div style="font-size: 12px; color: #475569; margin-top: 4px;">{contact_line}</div>' if contact_line else ''}
+                {cc_line}
             </div>
             """
 
@@ -178,7 +206,8 @@ class NotificationService:
                     subject=subject,
                     html_content=html_content,
                     reply_to=reply_to,
-                    from_name=sender_name
+                    from_name=sender_name,
+                    cc=cc_list if cc_list else None
                 )
                 job.status = "SENT"
                 job.sent_at = datetime.now(timezone.utc)
@@ -188,7 +217,8 @@ class NotificationService:
                     subject=subject,
                     html_content=html_content,
                     reply_to=reply_to,
-                    from_name=sender_name
+                    from_name=sender_name,
+                    cc=cc_list if cc_list else None
                 )
                 job.status = "SENT"
                 job.sent_at = datetime.now(timezone.utc)
@@ -199,6 +229,7 @@ class NotificationService:
                     f"From: {sender_name or 'System'} <{self.sender_email}>\n"
                     f"Reply-To: {reply_to or 'None'}\n"
                     f"To: {recipient_email}\n"
+                    f"Cc: {cc_str or 'None'}\n"
                     f"Subject: {subject}\n"
                     f"Idempotency Key: {idempotency_key}\n"
                     f"Body: {body_text}\n"
@@ -227,6 +258,15 @@ class NotificationService:
         date_str = document.expiry_date.strftime("%Y-%m-%d") if document.expiry_date else "N/A"
         idempotency_key = f"expiry_{document.id}_{days_remaining}d_{date_str}"
 
+        # Look up admin user to CC so notices appear in dashboard user's mailbox
+        admin_user = (
+            db.query(User)
+            .filter(User.organization_id == document.organization_id)
+            .order_by(User.created_at.asc())
+            .first()
+        )
+        cc_email = admin_user.email if admin_user and not admin_user.email.endswith(".local") else None
+
         urgency = "URGENT: " if days_remaining <= 7 else ""
         subject = f"{urgency}Document Expiration Notice: {document.document_type} expires in {days_remaining} days"
         body = (
@@ -248,7 +288,8 @@ class NotificationService:
             recipient_email=vendor.contact_email,
             subject=subject,
             body_text=body,
-            idempotency_key=idempotency_key
+            idempotency_key=idempotency_key,
+            cc=cc_email
         )
 
     def send_resubmission_request(
@@ -259,7 +300,8 @@ class NotificationService:
         reason: str,
         resubmission_url: Optional[str] = None,
         reply_to: Optional[str] = None,
-        sender_name: Optional[str] = None
+        sender_name: Optional[str] = None,
+        cc: Optional[Union[str, List[str]]] = None
     ) -> NotificationJob:
         timestamp_slug = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
         idempotency_key = f"resubmit_{document.id}_{timestamp_slug}"
@@ -290,7 +332,8 @@ class NotificationService:
             reply_to=reply_to,
             sender_name=sender_name,
             cta_url=resubmission_url,
-            cta_text="Review & Re-upload Document"
+            cta_text="Review & Re-upload Document",
+            cc=cc or reply_to
         )
 
 notification_service = NotificationService()

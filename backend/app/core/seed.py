@@ -63,15 +63,15 @@ def seed_database():
         db.flush()
 
         # 3. Workflows
-        # Workflow 1: Standard Supplier Onboarding
-        prompt_1 = "Collect GST certificate, PAN card, business registration certificate, bank proof, and insurance certificate. Insurance must have an expiry date. Administrator approval required. Reminders 30 days before expiry."
-        schema_1 = generate_deterministic_fallback(prompt_1, "Standard Supplier Compliance", "Supply Chain")
+        # Workflow 1: US Corporate Bookkeeping Onboarding
+        prompt_1 = "Onboard US corporate bookkeeping client. Collect IRS Form W-9, IRS EIN confirmation letter CP 575, last 12 months business checking and credit card statements, and prior year corporate tax return Form 1120-S. Reminders 30 days before filing."
+        schema_1 = generate_deterministic_fallback(prompt_1, "US Corporate Bookkeeping Onboarding", "US Accounting & Bookkeeping")
 
         wf_1 = WorkflowTemplate(
             organization_id=org.id,
-            name="Standard Supplier Compliance",
-            vendor_category="Supply Chain",
-            description="Complete vendor onboarding and compliance verification for freight, supply chain, and logistics vendors.",
+            name="US Corporate Bookkeeping Onboarding",
+            vendor_category="US Accounting & Bookkeeping",
+            description="Complete bookkeeping onboarding for US LLCs and S-Corporations collecting IRS tax IDs, bank statements, and tax returns.",
             status="PUBLISHED"
         )
         db.add(wf_1)
@@ -91,15 +91,15 @@ def seed_database():
         db.flush()
         wf_1.current_version_id = ver_1.id
 
-        # Workflow 2: IT & Software Services Onboarding
-        prompt_2 = "Collect company registration, NDA agreement, bank account details, and ISO 27001 certificate. ISO certificate has expiration. 30 days reminder."
-        schema_2 = generate_deterministic_fallback(prompt_2, "IT & Software Vendor Onboarding", "IT & Cloud Services")
+        # Workflow 2: UK Limited Company Bookkeeping Intake
+        prompt_2 = "Onboard UK private limited company for monthly bookkeeping and annual statutory accounts. Collect Companies House Certificate of Incorporation, HMRC Corporation Tax UTR confirmation, and last 12 months UK business bank statements. 30 days reminder."
+        schema_2 = generate_deterministic_fallback(prompt_2, "UK Limited Company Bookkeeping Intake", "UK Accounting & Bookkeeping")
 
         wf_2 = WorkflowTemplate(
             organization_id=org.id,
-            name="IT & Software Vendor Onboarding",
-            vendor_category="IT & Cloud Services",
-            description="Security, confidentiality and banking validation for software, SaaS, and technology consultants.",
+            name="UK Limited Company Bookkeeping Intake",
+            vendor_category="UK Accounting & Bookkeeping",
+            description="Statutory accounting, VAT MTD, and Companies House documentation packet for UK businesses.",
             status="PUBLISHED"
         )
         db.add(wf_2)
@@ -119,55 +119,55 @@ def seed_database():
         db.flush()
         wf_2.current_version_id = ver_2.id
 
-        # 4. Realistic Vendors
-        # Vendor A: Approved Vendor
+        # 4. Realistic Clients
+        # Client A: Approved Client
         v_a = Vendor(
             organization_id=org.id,
-            name="Apex Fleet Logistics LLC",
-            category="Supply Chain",
-            contact_email="compliance@apexfleet.com",
-            contact_phone="+1 (555) 234-5678",
+            name="Apex Cloud Media LLC",
+            category="US Accounting & Bookkeeping",
+            contact_email="finance@apexcloudmedia.com",
+            contact_phone="+1 (415) 890-2134",
             status="APPROVED",
-            notes="Reliable long-haul freight carrier. Fully verified."
+            notes="US S-Corporation client. Monthly bookkeeping and QuickBooks Online reconciliation."
         )
         db.add(v_a)
         db.flush()
 
-        # Documents for Vendor A
+        # Documents for Client A
         d_a1 = Document(
             organization_id=org.id,
             vendor_id=v_a.id,
-            field_id="field_doc_gst",
-            document_type="GST / Tax Certificate",
-            original_filename="apex_gst_cert.pdf",
+            field_id="field_doc_w9",
+            document_type="IRS Form W-9 (Taxpayer ID)",
+            original_filename="apex_form_w9_signed.pdf",
             file_size=245000,
             mime_type="application/pdf",
-            storage_path=f"{org.id}/{v_a.id}/gst_cert.pdf",
+            storage_path=f"{org.id}/{v_a.id}/apex_w9.pdf",
             status="APPROVED"
         )
         d_a2 = Document(
             organization_id=org.id,
             vendor_id=v_a.id,
-            field_id="field_doc_insurance",
-            document_type="Commercial Liability Insurance",
-            original_filename="apex_liability_policy_2026.pdf",
+            field_id="field_doc_bank_statements",
+            document_type="Business Bank & Credit Card Statements",
+            original_filename="apex_bank_statements_2026.pdf",
             file_size=512000,
             mime_type="application/pdf",
-            storage_path=f"{org.id}/{v_a.id}/insurance.pdf",
+            storage_path=f"{org.id}/{v_a.id}/apex_bank.pdf",
             expiry_date=now + timedelta(days=18), # Expiring in 18 days! Perfect for 30d expiry bucket
             status="APPROVED"
         )
         db.add_all([d_a1, d_a2])
 
-        # Vendor B: Pending Review
+        # Client B: Pending Review
         v_b = Vendor(
             organization_id=org.id,
-            name="NexGen Cloud Solutions Inc.",
-            category="IT & Cloud Services",
-            contact_email="partners@nexgencloud.io",
-            contact_phone="+1 (555) 890-1234",
+            name="Cotswold Commerce Ltd",
+            category="UK Accounting & Bookkeeping",
+            contact_email="accounts@cotswoldcommerce.co.uk",
+            contact_phone="+44 20 7946 0912",
             status="SUBMITTED",
-            notes="Submitted compliance package today. Needs admin review."
+            notes="UK Ltd company. Submitted Companies House incorporation & UTR for annual accounts preparation."
         )
         db.add(v_b)
         db.flush()
@@ -175,36 +175,36 @@ def seed_database():
         d_b1 = Document(
             organization_id=org.id,
             vendor_id=v_b.id,
-            field_id="field_doc_business_reg",
-            document_type="Certificate of Incorporation",
-            original_filename="nexgen_incorporation.pdf",
+            field_id="field_doc_companies_house",
+            document_type="Companies House Certificate of Incorporation",
+            original_filename="cotswold_crn_certificate.pdf",
             file_size=320000,
             mime_type="application/pdf",
-            storage_path=f"{org.id}/{v_b.id}/incorp.pdf",
+            storage_path=f"{org.id}/{v_b.id}/crn_cert.pdf",
             status="UNDER_REVIEW"
         )
         d_b2 = Document(
             organization_id=org.id,
             vendor_id=v_b.id,
-            field_id="field_doc_bank_proof",
-            document_type="Bank Routing & Account Header",
-            original_filename="nexgen_voided_check.pdf",
+            field_id="field_doc_hmrc_utr",
+            document_type="HMRC Corporation Tax UTR Notice",
+            original_filename="cotswold_hmrc_utr.pdf",
             file_size=180000,
             mime_type="application/pdf",
-            storage_path=f"{org.id}/{v_b.id}/bank.pdf",
+            storage_path=f"{org.id}/{v_b.id}/utr_notice.pdf",
             status="UNDER_REVIEW"
         )
         db.add_all([d_b1, d_b2])
 
-        # Vendor C: Expired Document Vendor
+        # Client C: Expired Document
         v_c = Vendor(
             organization_id=org.id,
-            name="Horizon Warehousing Partners",
-            category="Supply Chain",
-            contact_email="operations@horizonwarehouse.com",
-            contact_phone="+1 (555) 456-7890",
+            name="Meridian Software Inc",
+            category="US Sales Tax & E-commerce",
+            contact_email="tax@meridiansoftware.com",
+            contact_phone="+1 (212) 555-0198",
             status="APPROVED",
-            notes="Regional warehouse operator. Fire safety & insurance renewal overdue."
+            notes="Multi-state e-commerce seller. State sales tax resale exemption certificate expired."
         )
         db.add(v_c)
         db.flush()
@@ -212,26 +212,26 @@ def seed_database():
         d_c1 = Document(
             organization_id=org.id,
             vendor_id=v_c.id,
-            field_id="field_doc_insurance",
-            document_type="Warehouse Operating Insurance",
-            original_filename="horizon_insurance_policy.pdf",
+            field_id="field_doc_resale_cert",
+            document_type="State Sales Tax Exemption Certificate",
+            original_filename="meridian_resale_certificate.pdf",
             file_size=420000,
             mime_type="application/pdf",
-            storage_path=f"{org.id}/{v_c.id}/horizon_ins.pdf",
+            storage_path=f"{org.id}/{v_c.id}/resale_cert.pdf",
             expiry_date=now - timedelta(days=5), # Expired 5 days ago!
             status="EXPIRED"
         )
         db.add(d_c1)
 
-        # Vendor D: Invited Vendor with active token
+        # Client D: Invited Client with active token
         v_d = Vendor(
             organization_id=org.id,
-            name="Beacon Security Consultants",
-            category="IT & Cloud Services",
-            contact_email="legal@beaconsec.com",
-            contact_phone="+1 (555) 789-0123",
+            name="Highland FinTech LLP",
+            category="UK Accounting & Bookkeeping",
+            contact_email="compliance@highlandfintech.co.uk",
+            contact_phone="+44 131 496 0884",
             status="INVITED",
-            notes="Invitation link sent. Awaiting vendor submission."
+            notes="Onboarding invitation link dispatched for UK partnership bookkeeping."
         )
         db.add(v_d)
         db.flush()
