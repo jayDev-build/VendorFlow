@@ -31,44 +31,44 @@ import { WorkflowField, WorkflowSchemaDefinition, FieldType } from '@/lib/types'
 
 export const PRESET_PROMPTS = [
   {
-    title: 'CA Firm Client Tax & Statutory Audit Onboarding',
-    category: 'CA & Tax Firms',
-    badge: 'CA & Tax Firms',
-    description: 'Document collection and verification for corporate client tax filing, statutory audit, and regulatory compliance.',
+    title: 'US Monthly Bookkeeping & Financial Clean-Up (LLC / S-Corp)',
+    category: 'US Accounting & Bookkeeping',
+    badge: 'US Bookkeeping',
+    description: 'IRS Form W-9, EIN CP 575 verification, 12 months business checking & credit card statements, prior year tax returns (1120/1120-S), and QuickBooks/Xero connection.',
     prompt:
-      'Collect PAN card, Aadhaar card, Certificate of Incorporation, last 3 years ITR acknowledgement, audited balance sheet and P&L statement, 12 months bank statement, and GST registration certificate. Bank statement and ITR must be verified. Administrator approval required. Send reminders 30 days before annual filing expiry.'
+      'Onboard new US corporate bookkeeping client. Collect legal entity name, DBA name, federal tax classification (LLC / S-Corp / C-Corp), state of formation, primary accounting software (QuickBooks Online / Xero), IRS Form W-9, IRS EIN confirmation letter (CP 575 or 147C), last 12 months business bank statements, last 12 months business credit card statements, and prior year corporate tax return (Form 1120 or 1120-S). All financial statements and tax forms require verification. Send reminders 30 days before annual tax filing deadlines.'
   },
   {
-    title: 'Manufacturing & D2C Supplier Quality Onboarding',
-    category: 'Manufacturing, D2C & Retail Procurement',
-    badge: 'Manufacturing, D2C & Retail',
-    description: 'Supplier quality verification, factory audit certificates, and regulatory product compliance.',
+    title: 'UK Limited Company Bookkeeping & Year-End Accounts (Companies House & HMRC)',
+    category: 'UK Accounting & Bookkeeping',
+    badge: 'UK Bookkeeping',
+    description: 'Companies House CRN, HMRC Corporation Tax UTR, Memorandum & Articles of Association, 12 months bank statements, and Director KYC identity verification.',
     prompt:
-      'Collect factory audit report, BIS / ISO 9001 quality certificate, product lab test report, GST certificate, MSME registration, bank proof, and product liability insurance. Liability insurance and ISO quality certificate must have expiry tracking. Send reminders 60, 30, and 7 days prior to expiry.'
+      'Onboard UK private limited company (Ltd) for monthly bookkeeping and annual statutory accounts. Collect registered company name, 8-digit Companies House registration number (CRN), registered office address, primary bookkeeping software (Xero / QuickBooks Online), accounting reference date (year-end), Companies House Certificate of Incorporation, HMRC Corporation Tax UTR confirmation notice, last 12 months UK business bank statements, prior year CT600 tax return and statutory accounts, and Director photo ID with proof of address (< 3 months old). Track 12-month accounting reference expiry and send reminders 30 and 14 days before Companies House filing deadline.'
   },
   {
-    title: 'Fleet Carrier & Transport Operator Verification',
-    category: 'Logistics, Fleet Operators & 3PL Brokers',
-    badge: 'Logistics, Fleet & 3PL',
-    description: 'Commercial driver KYC, vehicle fitness certification, transport permits, and transit liability insurance.',
+    title: 'UK VAT Registration & Making Tax Digital (MTD) Compliance',
+    category: 'UK VAT & Indirect Tax',
+    badge: 'UK VAT (MTD)',
+    description: 'HMRC VAT registration certificate (VAT 484), Making Tax Digital (MTD) quarterly filing setup, e-commerce sales reports, and merchant payout summaries.',
     prompt:
-      'Collect commercial vehicle RC, national transport permit, vehicle fitness certificate, commercial driver license, pollution under control (PUC) certificate, and comprehensive goods transit insurance. Vehicle fitness, national permit, PUC, and transit insurance require expiry tracking. Administrator review mandatory. Send reminders 30 and 7 days before expiry.'
+      'Collect UK VAT registration certificate (VAT 484), 9-digit VAT registration number, effective date of VAT registration, VAT accounting scheme (Standard Accrual / Flat Rate Scheme / Cash Accounting), last 4 quarters VAT return summaries, digital record-keeping software authorization, and merchant payment gateway statements (Stripe / Shopify Payments / PayPal). Remind client 14 and 7 days prior to quarterly MTD VAT return deadlines.'
   },
   {
-    title: 'Study Abroad & Student Visa Documentation Packet',
-    category: 'Study Abroad, Visa & Immigration Consultants',
-    badge: 'Study Abroad & Visa',
-    description: 'Applicant identity verification, language proficiency scorecards, academic records, and financial solvency proof.',
+    title: 'US Multi-State E-commerce & Sales Tax Intake (Shopify / Amazon / Stripe)',
+    category: 'US Sales Tax & E-commerce',
+    badge: 'US Sales Tax',
+    description: 'Multi-state sales tax nexus review, state resale & exemption certificates, merchant gateway payouts, and inventory asset balance sheets.',
     prompt:
-      'Collect passport front and back copy, IELTS or TOEFL English proficiency scorecard, official university transcripts, financial solvency bank certificate, statement of purpose, and police clearance certificate. Passport, language scorecard, and police clearance must have expiry tracking. Administrator approval required. Send reminders 60 and 30 days before expiry.'
+      'Intake for US multi-state e-commerce business selling on Shopify, Amazon, and Walmart. Collect primary operating state, list of physical and economic nexus states, state sales tax permits, resale exemption certificates, Stripe/PayPal monthly merchant payout reports, cost of goods sold (COGS) inventory reports, and bank settlement statements. State sales tax exemption certificates require annual expiry tracking. Administrator review mandatory. Send reminders 30 and 15 days before state sales tax license renewal.'
   },
   {
-    title: 'Clinical Practitioner & Healthcare Staffing Credentialing',
-    category: 'Hospitals, Healthcare Staffing & HR Agencies',
-    badge: 'Hospitals & Healthcare Staffing',
-    description: 'Doctor and nurse licensing, clinical credentials, life-support certifications, and malpractice coverage.',
+    title: 'US & UK Payroll Compliance & Year-End Tax Filings (941/W-2 & PAYE/P60)',
+    category: 'Payroll & Wage Compliance',
+    badge: 'Payroll Compliance',
+    description: 'Wage tax withholdings, state unemployment insurance (SUI) IDs, IRS Form 941/940 (US) or HMRC PAYE / Real Time Information (RTI) P60/P45 reports (UK).',
     prompt:
-      'Collect State Medical Council registration, nursing or medical degree certificate, BLS / ACLS life support certification, background check report, immunization record, and medical malpractice insurance. Medical council registration, BLS/ACLS certificate, and malpractice insurance must have expiry tracking. Mandatory administrator verification. Send reminders 45, 30, and 7 days before expiry.'
+      'Onboard client for payroll processing and wage compliance across US and UK jurisdictions. Collect employer identification numbers (IRS EIN or HMRC Employer PAYE Reference and Accounts Office Reference), state unemployment tax rate notices, employee direct deposit authorization, last 4 quarters payroll wage summaries (IRS Form 941 / Form 940 or HMRC FPS / P60 summaries), workers compensation policy certificate, and payroll representation consent. Workers compensation policy and state SUI tax notices require annual expiration tracking. Send reminders 30 and 7 days prior to policy expiration.'
   }
 ];
 
@@ -184,7 +184,7 @@ export default function NewWorkflowPage() {
         const published = await api.publishWorkflow(created.id);
         setPublishedWorkflowId(published.id);
         setShowInviteModal(true);
-        setSuccessMsg('Workflow published successfully! You can now invite vendors.');
+        setSuccessMsg('Workflow published successfully! You can now invite respondents or applicants.');
       } else {
         setSuccessMsg('Workflow draft saved successfully!');
         router.push('/workflows');
@@ -199,8 +199,8 @@ export default function NewWorkflowPage() {
   return (
     <div className="flex-1 flex flex-col min-w-0">
       <TopNav
-        title="AI Workflow Generator"
-        subtitle="Transform plain-English requirements into an automated, production-ready vendor onboarding workflow"
+        title="AI Client Bookkeeping Workflow Generator"
+        subtitle="Transform UK & US bookkeeping & accounting requirements into automated client intake portals with statutory document rules"
         actions={
           <Link
             href="/workflows"
@@ -309,7 +309,7 @@ export default function NewWorkflowPage() {
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 rows={4}
-                placeholder="Example: Collect PAN card, Aadhaar, ITR acknowledgement, audited balance sheet, 12 months bank statement, and GST certificate. Bank statement and ITR must be verified. Administrator approval required."
+                placeholder="Example: Onboard new US LLC client. Collect IRS Form W-9, EIN confirmation letter CP 575, 12 months business checking and credit card statements, prior year Form 1120-S, and QuickBooks Online access. Send reminders 30 days before annual tax filing deadlines."
                 className="w-full text-xs p-3.5 rounded-xl border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 placeholder-slate-500 font-sans leading-relaxed font-medium"
               />
             </div>
@@ -357,7 +357,7 @@ export default function NewWorkflowPage() {
                   className="px-3.5 py-2 text-xs font-semibold text-slate-800 bg-white hover:bg-slate-100 rounded-lg border border-slate-300 flex items-center gap-1.5 transition-colors shadow-2xs"
                 >
                   <Eye className="w-3.5 h-3.5 text-slate-600" />
-                  <span>Preview Vendor View</span>
+                  <span>Preview Respondent View</span>
                 </button>
                 <button
                   type="button"
@@ -420,7 +420,7 @@ export default function NewWorkflowPage() {
                   onChange={(e) => setSchema({ ...schema, approval_required: e.target.checked })}
                   className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
                 />
-                <span>Require Administrator Approval before Vendor Certification</span>
+                <span>Require Administrator Review before Final Approval</span>
               </label>
 
               <div className="flex items-center gap-2 text-slate-700 font-medium">
@@ -547,7 +547,7 @@ export default function NewWorkflowPage() {
                             </span>
                             <p className="text-[10px] text-slate-500 font-normal">
                               {isDropdown
-                                ? 'Vendors select one option from this list in the dropdown menu.'
+                                ? 'Respondents select one option from this list in the dropdown menu.'
                                 : '1 choice creates a single-confirmation checkbox; 2+ choices create a multi-select checklist.'}
                             </p>
                           </div>
@@ -668,7 +668,7 @@ export default function NewWorkflowPage() {
                       type="text"
                       value={field.help_text || ''}
                       onChange={(e) => updateField(idx, { help_text: e.target.value })}
-                      placeholder="Optional helper text or guidance for vendor..."
+                      placeholder="Optional helper text or guidance for respondents..."
                       className="flex-1 text-[11px] px-2.5 py-1.5 rounded border border-slate-300 bg-white text-slate-900 placeholder-slate-500 font-medium"
                     />
 

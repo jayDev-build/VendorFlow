@@ -142,7 +142,7 @@ export default function DashboardPage() {
     <div className="flex-1 flex flex-col min-w-0">
       <TopNav
         title="Compliance & Onboarding Overview"
-        subtitle="Real-time vendor onboarding pipeline, document verifications, and expiry alerts"
+        subtitle="Real-time intake pipeline, document verifications, and compliance alerts across all industries"
         actions={
           <div className="flex items-center gap-2">
             <button
@@ -158,10 +158,10 @@ export default function DashboardPage() {
               type="button"
               onClick={handleInviteClick}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-800 bg-white hover:bg-slate-50 rounded-lg transition-all border border-slate-300 shadow-2xs hover:shadow-xs cursor-pointer"
-              title="Invite vendor to complete digital onboarding workflow"
+              title="Invite applicant or respondent to complete workflow"
             >
               <UserPlus className="w-3.5 h-3.5 text-slate-600" />
-              <span>Invite Vendor</span>
+              <span>Invite Participant</span>
             </button>
 
             <button
@@ -199,13 +199,13 @@ export default function DashboardPage() {
             className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-all cursor-pointer group"
           >
             <div className="flex items-center justify-between text-slate-700 mb-2">
-              <span className="text-xs font-semibold">Total Vendors</span>
+              <span className="text-xs font-semibold">Total Profiles</span>
               <Users className="w-4 h-4 text-slate-600 group-hover:text-slate-900" />
             </div>
             <div className="text-2xl font-bold text-slate-900 tracking-tight">
               {stats?.total_vendors ?? 0}
             </div>
-            <div className="text-[11px] text-slate-600 font-medium mt-1">Registered suppliers</div>
+            <div className="text-[11px] text-slate-600 font-medium mt-1">Directory entries</div>
           </div>
 
           {/* Approved Vendors */}
@@ -399,8 +399,8 @@ export default function DashboardPage() {
           {/* Header & Controls */}
           <div className="p-5 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">Vendor Activity & Compliance Directory</h2>
-              <p className="text-xs text-slate-700 font-medium">Live database records of registered suppliers and submission progress</p>
+              <h2 className="text-base font-semibold text-slate-900">Client Accounts & Bookkeeping Directory</h2>
+              <p className="text-xs text-slate-700 font-medium">Live database records of registered clients and intake progress</p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
@@ -411,7 +411,7 @@ export default function DashboardPage() {
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search vendors..."
+                  placeholder="Search clients..."
                   className="text-xs pl-9 pr-3 py-2 rounded-lg border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 font-medium w-48 sm:w-60 placeholder-slate-500"
                 />
               </form>
@@ -435,7 +435,7 @@ export default function DashboardPage() {
                 className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-xs"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Onboard Vendor</span>
+                <span>Onboard Client</span>
               </Link>
             </div>
           </div>
@@ -445,7 +445,7 @@ export default function DashboardPage() {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-100/70 text-slate-800 font-bold uppercase tracking-wider text-[11px]">
-                  <th className="py-3 px-4">Vendor Name</th>
+                  <th className="py-3 px-4">Client / Entity Name</th>
                   <th className="py-3 px-4">Category</th>
                   <th className="py-3 px-4">Contact Email</th>
                   <th className="py-3 px-4">Status</th>
@@ -460,14 +460,14 @@ export default function DashboardPage() {
                   <tr>
                     <td colSpan={8} className="py-12 text-center text-slate-700 font-semibold">
                       <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500" />
-                      <span>Loading vendors from database...</span>
+                      <span>Loading clients from database...</span>
                     </td>
                   </tr>
                 ) : vendors.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="py-12 text-center text-slate-700">
                       <Building2 className="w-10 h-10 text-slate-500 mx-auto mb-2" />
-                      <div className="font-bold text-slate-900 text-sm">No vendors found</div>
+                      <div className="font-bold text-slate-900 text-sm">No clients found</div>
                       <p className="text-xs text-slate-600 font-medium mt-1">Try clearing filters or create a new onboarding invitation.</p>
                     </td>
                   </tr>

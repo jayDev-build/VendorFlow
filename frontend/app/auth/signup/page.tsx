@@ -9,7 +9,7 @@ import { api } from '@/lib/api';
 export default function SignupPage() {
   const router = useRouter();
   const [orgName, setOrgName] = useState('');
-  const [industry, setIndustry] = useState('Supply Chain & Logistics');
+  const [industry, setIndustry] = useState('US & UK Bookkeeping Practice');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -47,7 +47,7 @@ export default function SignupPage() {
           </div>
           <h1 className="text-xl font-bold text-white tracking-tight">Create your Organization</h1>
           <p className="text-xs text-slate-300 font-medium mt-1">
-            Start automating vendor compliance workflows in minutes
+            Start automating client bookkeeping workflows in minutes
           </p>
         </div>
 
@@ -68,25 +68,25 @@ export default function SignupPage() {
                 required
                 value={orgName}
                 onChange={(e) => setOrgName(e.target.value)}
-                placeholder="e.g. Apex Global Logistics"
+                placeholder="e.g. Apex Accounting & Advisory LLC"
                 className="w-full text-xs pl-9 pr-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-medium"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-200 mb-1">Industry Category</label>
+            <label className="block text-xs font-semibold text-slate-200 mb-1">Practice Focus</label>
             <select
               value={industry}
               onChange={(e) => setIndustry(e.target.value)}
               className="w-full text-xs px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-medium"
             >
-              <option value="Supply Chain & Logistics">Supply Chain & Logistics</option>
-              <option value="IT & Cloud Services">IT & Cloud Services</option>
-              <option value="Manufacturing & Hardware">Manufacturing & Hardware</option>
-              <option value="Healthcare & Life Sciences">Healthcare & Life Sciences</option>
-              <option value="Construction & Facilities">Construction & Facilities</option>
-              <option value="Financial Services">Financial Services</option>
+              <option value="US & UK Bookkeeping Practice">US & UK Bookkeeping Practice</option>
+              <option value="US Corporate Bookkeeping & Tax (LLC / S-Corp)">US Corporate Bookkeeping & Tax (LLC / S-Corp)</option>
+              <option value="UK Limited Company Accounts & VAT (Ltd / LLP)">UK Limited Company Accounts & VAT (Ltd / LLP)</option>
+              <option value="VAT & Multi-State Sales Tax Compliance">VAT & Multi-State Sales Tax Compliance</option>
+              <option value="Payroll & Wage Reporting">Payroll & Wage Reporting</option>
+              <option value="General Accounting & Advisory">General Accounting & Advisory</option>
             </select>
           </div>
 

@@ -177,7 +177,7 @@ function WorkflowResponsesContent() {
     <div className="flex-1 flex flex-col min-w-0">
       <TopNav
         title={data ? `${data.workflow.name} — Responses` : 'Form Responses'}
-        subtitle={data ? `Inspect and review all vendor submissions for ${data.workflow.vendor_category} onboarding` : 'Workflow response registry'}
+        subtitle={data ? `Inspect and review all submissions for ${data.workflow.name} (${data.workflow.vendor_category})` : 'Workflow response registry'}
         actions={
           <div className="flex items-center gap-2">
             <Link
@@ -205,7 +205,7 @@ function WorkflowResponsesContent() {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
             >
               <Send className="w-3.5 h-3.5" />
-              <span>Invite Vendor</span>
+              <span>Invite Respondents</span>
             </button>
           </div>
         }
@@ -348,7 +348,7 @@ function WorkflowResponsesContent() {
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                 <input
                   type="text"
-                  placeholder="Search by vendor, email, or form answer..."
+                  placeholder="Search by name, email, or form answer..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="w-full pl-9 pr-8 py-1.5 text-xs bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-indigo-500"
@@ -400,7 +400,7 @@ function WorkflowResponsesContent() {
                   <p className="text-slate-500 max-w-sm mx-auto">
                     {search || statusFilter !== 'ALL'
                       ? 'No submissions match your active filter criteria. Try resetting your search.'
-                      : 'No vendors have submitted responses for this workflow yet. Invite vendors to start collecting responses.'}
+                      : 'No respondents have submitted responses for this workflow yet. Send invitations to start collecting responses.'}
                   </p>
                   {(search || statusFilter !== 'ALL') && (
                     <button
@@ -420,7 +420,7 @@ function WorkflowResponsesContent() {
                   <thead>
                     <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider text-[10px]">
                       <th className="py-3 px-4 sticky left-0 bg-slate-100 z-10 min-w-[200px]">
-                        Vendor Information
+                        Respondent / Applicant
                       </th>
                       <th className="py-3 px-3 min-w-[120px]">Status</th>
                       <th className="py-3 px-3 min-w-[140px]">Submitted At</th>

@@ -21,7 +21,7 @@ export const WorkflowPreviewModal: React.FC<WorkflowPreviewModalProps> = ({ sche
         <div className="px-5 py-3 bg-amber-100 text-amber-950 text-xs font-semibold flex items-center justify-between border-b border-amber-300">
           <div className="flex items-center gap-2">
             <Eye className="w-4 h-4 text-amber-800 shrink-0" />
-            <span>Interactive Manager Preview Mode — This is how invited vendors will experience your Google Forms-style onboarding portal.</span>
+            <span>Interactive Preview Mode — This is how invited respondents will experience your Google Forms-style submission portal.</span>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-amber-200 rounded text-amber-900 transition-colors">
             <X className="w-4 h-4" />
@@ -50,7 +50,7 @@ export const WorkflowPreviewModal: React.FC<WorkflowPreviewModalProps> = ({ sche
               <div className="pt-3 border-t border-slate-200 text-xs text-slate-600 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5 font-medium">
                   <Lock className="w-3.5 h-3.5 text-[#673ab7]" />
-                  <span>Submitting to: <strong className="text-slate-900">Your Organization</strong> (vendor@company.com)</span>
+                  <span>Submitting to: <strong className="text-slate-900">Your Organization</strong> (portal@formgate.in)</span>
                 </div>
                 <div className="text-rose-600 font-medium">
                   * Indicates required question

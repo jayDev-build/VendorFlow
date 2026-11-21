@@ -51,7 +51,7 @@ export default function SettingsPage() {
       setOrg(session.org);
       setOrgName(session.org.name);
       setOrgSlug(session.org.slug || '');
-      setIndustry(session.org.business_profile?.industry || 'CA & Tax Firms');
+      setIndustry(session.org.business_profile?.industry || 'US & UK Bookkeeping Practice');
     }
     if (session.user) {
       setUser(session.user);
@@ -397,12 +397,12 @@ export default function SettingsPage() {
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-900 mb-1.5">Primary Business Industry</label>
+                <label className="block text-xs font-semibold text-slate-900 mb-1.5">Practice Focus / Bookkeeping Area</label>
                 <input
                   type="text"
                   value={industry}
                   onChange={(e) => setIndustry(e.target.value)}
-                  placeholder="e.g. CA & Tax Audit Firms, Manufacturing & D2C, Healthcare Staffing"
+                  placeholder="e.g. US Bookkeeping & Tax, UK Statutory Accounts, MTD VAT Compliance"
                   className="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 font-medium placeholder-slate-400"
                 />
               </div>

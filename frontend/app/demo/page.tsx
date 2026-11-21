@@ -73,44 +73,44 @@ interface MockVendor {
 const INITIAL_DOCUMENTS: MockDocument[] = [
   {
     id: 'doc-1',
-    document_type: 'GST Tax Invoice & Registration Proof',
-    original_filename: 'A4-S1-GST-Invoice-Format_page-0001-scaled.jpg',
+    document_type: 'IRS Form W-9 (Request for Taxpayer ID)',
+    original_filename: 'Apex_Media_LLC_Form_W9_Signed.pdf',
     file_url: '/A4-S1-GST-Invoice-Format_page-0001-scaled.jpg',
     vendor_id: 'v-1',
-    vendor_name: 'Gujarat Freight Tools',
-    vendor_email: 'compliance@gft.com',
-    category: 'Manufacturing & Tools',
+    vendor_name: 'Apex Cloud Media LLC',
+    vendor_email: 'finance@apexcloudmedia.com',
+    category: 'US Accounting & Bookkeeping',
     status: 'APPROVED',
     file_size: 331876,
-    mime_type: 'image/jpeg',
+    mime_type: 'application/pdf',
     expiry_date: null,
     submitted_at: '2026-10-25T09:14:00Z'
   },
   {
     id: 'doc-2',
-    document_type: 'Commercial Registration Proof (Blurry Scan)',
-    original_filename: 'texture-blurry-text-open-textbook-260nw-1175839786.webp',
+    document_type: 'HMRC VAT Certificate & MTD Summary (Blurry Scan)',
+    original_filename: 'Cotswold_Retail_HMRC_VAT484_Scan.webp',
     file_url: '/texture-blurry-text-open-textbook-260nw-1175839786.webp',
     vendor_id: 'v-2',
-    vendor_name: 'Zenith Facility Solutions',
-    vendor_email: 'contact@zenithfacility.com',
-    category: 'Facility Management',
+    vendor_name: 'Cotswold Commerce Ltd',
+    vendor_email: 'accounts@cotswoldcommerce.co.uk',
+    category: 'UK Accounting & Bookkeeping',
     status: 'UNDER_REVIEW',
     file_size: 8094,
     mime_type: 'image/webp',
     expiry_date: null,
     submitted_at: '2026-10-25T10:45:00Z',
-    flagged_note: 'Illegible & blurry text scan. Document contents and registration number cannot be verified.'
+    flagged_note: 'Illegible & blurry VAT scan. 9-digit HMRC VAT registration number and effective date cannot be verified.'
   },
   {
     id: 'doc-3',
-    document_type: 'Certificate of Insurance (OCP Policy)',
-    original_filename: 'owner-and-protective-OCP-insurance-certificate-template.jpg',
+    document_type: 'State Sales Tax Resale & Exemption Certificate',
+    original_filename: 'Meridian_State_Resale_Certificate_2026.jpg',
     file_url: '/owner-and-protective-OCP-insurance-certificate-template.jpg',
     vendor_id: 'v-3',
-    vendor_name: 'Vertex Infra Projects',
-    vendor_email: 'accounts@vertexinfra.com',
-    category: 'Civil Infrastructure',
+    vendor_name: 'Meridian Software Inc',
+    vendor_email: 'tax@meridiansoftware.com',
+    category: 'US Sales Tax & E-commerce',
     status: 'UNDER_REVIEW',
     file_size: 51098,
     mime_type: 'image/jpeg',
@@ -122,10 +122,10 @@ const INITIAL_DOCUMENTS: MockDocument[] = [
 const INITIAL_VENDORS: MockVendor[] = [
   {
     id: 'v-1',
-    name: 'Gujarat Freight Tools',
-    category: 'Manufacturing & Tools',
-    email: 'compliance@gft.com',
-    phone: '+91 22 2582 0309',
+    name: 'Apex Cloud Media LLC',
+    category: 'US Accounting & Bookkeeping',
+    email: 'finance@apexcloudmedia.com',
+    phone: '+1 (415) 890-2134',
     status: 'APPROVED',
     documentsCount: 4,
     approvedCount: 4,
@@ -134,10 +134,10 @@ const INITIAL_VENDORS: MockVendor[] = [
   },
   {
     id: 'v-2',
-    name: 'Zenith Facility Solutions',
-    category: 'Facility Management',
-    email: 'contact@zenithfacility.com',
-    phone: '+91 91672 99881',
+    name: 'Cotswold Commerce Ltd',
+    category: 'UK Accounting & Bookkeeping',
+    email: 'accounts@cotswoldcommerce.co.uk',
+    phone: '+44 20 7946 0912',
     status: 'UNDER_REVIEW',
     documentsCount: 4,
     approvedCount: 3,
@@ -146,10 +146,10 @@ const INITIAL_VENDORS: MockVendor[] = [
   },
   {
     id: 'v-3',
-    name: 'Vertex Infra Projects',
-    category: 'Civil Infrastructure',
-    email: 'accounts@vertexinfra.com',
-    phone: '+91 98450 77612',
+    name: 'Meridian Software Inc',
+    category: 'US Sales Tax & E-commerce',
+    email: 'tax@meridiansoftware.com',
+    phone: '+1 (212) 555-0198',
     status: 'UNDER_REVIEW',
     documentsCount: 3,
     approvedCount: 2,
@@ -158,10 +158,10 @@ const INITIAL_VENDORS: MockVendor[] = [
   },
   {
     id: 'v-4',
-    name: 'Falcon Freight Lines',
-    category: 'Fleet & Logistics',
-    email: 'ops@falconlines.com',
-    phone: '+91 99880 33412',
+    name: 'Highland FinTech LLP',
+    category: 'UK Accounting & Bookkeeping',
+    email: 'compliance@highlandfintech.co.uk',
+    phone: '+44 131 496 0884',
     status: 'APPROVED',
     documentsCount: 5,
     approvedCount: 5,
@@ -170,10 +170,10 @@ const INITIAL_VENDORS: MockVendor[] = [
   },
   {
     id: 'v-5',
-    name: 'Beacon Clinical Staffing',
-    category: 'Healthcare & Staffing',
-    email: 'credentials@beaconclinical.com',
-    phone: '+91 98110 55432',
+    name: 'Beacon Payroll & Staffing Inc',
+    category: 'Payroll & Wage Compliance',
+    email: 'payroll@beaconstaffing.com',
+    phone: '+1 (617) 555-0144',
     status: 'IN_PROGRESS',
     documentsCount: 3,
     approvedCount: 1,
@@ -1071,7 +1071,7 @@ function SalesDemoContent() {
                 <div className="py-3.5 flex items-center justify-between">
                   <div>
                     <div className="font-semibold text-slate-900 flex items-center gap-2">
-                      <span>Beacon Clinical Staffing &bull; Practitioner License</span>
+                      <span>Meridian Software Inc &bull; State Sales Tax Exemption</span>
                       <span className="text-[10px] bg-rose-100 text-rose-800 font-bold px-1.5 py-0.5 rounded">
                         Expires in 26 Days
                       </span>
@@ -1089,7 +1089,7 @@ function SalesDemoContent() {
                         setToastNotification({
                           visible: true,
                           title: 'Reminder Re-dispatched',
-                          message: 'Immediate email & notification triggered for Beacon Clinical Staffing.'
+                          message: 'Immediate email & notification triggered for Meridian Software Inc.'
                         });
                         setTimeout(() => setToastNotification(null), 3000);
                       }}
@@ -1103,7 +1103,7 @@ function SalesDemoContent() {
                 <div className="py-3.5 flex items-center justify-between">
                   <div>
                     <div className="font-semibold text-slate-900">
-                      Zenith Facility Solutions &bull; Commercial General Liability Insurance
+                      Cotswold Commerce Ltd &bull; UK Companies House Annual Filing
                     </div>
                     <div className="text-[11px] text-slate-500 mt-0.5">
                       Expiry Date: 2027-03-31 &bull; 320 Days Remaining (Healthy Status)
@@ -1125,8 +1125,8 @@ function SalesDemoContent() {
           <main className="p-6 space-y-6 max-w-7xl mx-auto w-full">
             <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200/90 shadow-2xs">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Active Compliance Blueprints</h3>
-                <p className="text-xs text-slate-500">Structured document onboarding requirements enforced across suppliers</p>
+                <h3 className="text-sm font-bold text-slate-900">Active Bookkeeping Intake Blueprints</h3>
+                <p className="text-xs text-slate-500">Structured document onboarding requirements enforced across UK and US corporate clients</p>
               </div>
               <button
                 onClick={() => setShowAiWorkflowModal(true)}
@@ -1143,11 +1143,11 @@ function SalesDemoContent() {
                   <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
                     PUBLISHED
                   </span>
-                  <span className="text-xs text-slate-400">14 Suppliers Active</span>
+                  <span className="text-xs text-slate-400">14 Clients Active</span>
                 </div>
-                <h4 className="font-bold text-slate-900 text-sm">Logistics & Fleet Contractor Onboarding</h4>
+                <h4 className="font-bold text-slate-900 text-sm">US Monthly Bookkeeping & Financial Clean-Up (LLC / S-Corp)</h4>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Collects GSTIN certificate, Commercial General Liability Insurance (&gt; ₹2 Crore), Driver Licenses, and Fleet RC Books with verification workflows.
+                  Collects IRS Form W-9, EIN confirmation letter CP 575, 12 months business checking and credit card statements, and prior year Form 1120-S.
                 </p>
                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
                   <span className="text-slate-500">4 Required Documents</span>
@@ -1165,11 +1165,11 @@ function SalesDemoContent() {
                   <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
                     PUBLISHED
                   </span>
-                  <span className="text-xs text-slate-400">4 Suppliers Active</span>
+                  <span className="text-xs text-slate-400">4 Clients Active</span>
                 </div>
-                <h4 className="font-bold text-slate-900 text-sm">Facility Management Statutory Verification</h4>
+                <h4 className="font-bold text-slate-900 text-sm">UK Limited Company Bookkeeping & Year-End Accounts (Ltd)</h4>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Requires EPFO monthly return challans, ESIC registration certificates, PAN cards, and third-party indemnity bonds.
+                  Collects Companies House Certificate of Incorporation, HMRC Corporation Tax UTR, 12 months UK business bank statements, and Director KYC verification.
                 </p>
                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
                   <span className="text-slate-500">3 Required Documents</span>
@@ -1638,15 +1638,16 @@ function SalesDemoContent() {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Select Compliance Workflow</label>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Select Bookkeeping Intake Workflow</label>
                 <select className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                  <option>Logistics & Fleet Contractor Onboarding (4 Docs)</option>
-                  <option>Facility Management Statutory Verification (3 Docs)</option>
+                  <option>US Monthly Bookkeeping & Financial Clean-Up (4 Docs)</option>
+                  <option>UK Limited Company Bookkeeping & Year-End Accounts (3 Docs)</option>
+                  <option>UK VAT Registration & Making Tax Digital (MTD) Compliance (3 Docs)</option>
                 </select>
               </div>
 
               <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs">
-                ✓ <strong>Direct link generated:</strong> Vendors can also be shared the onboarding URL via WhatsApp directly.
+                ✓ <strong>Direct link generated:</strong> Clients can also be shared the onboarding URL via email or client portal directly.
               </div>
             </div>
 
@@ -1775,16 +1776,16 @@ function SalesDemoContent() {
                   rows={4}
                   value={workflowPrompt}
                   onChange={(e) => setWorkflowPrompt(e.target.value)}
-                  placeholder="e.g. Onboarding workflow for chemical logistics contractors requiring Hazchem transit license, PESO approvals, driver hazmat endorsements, and ₹5 Crore liability insurance."
+                  placeholder="e.g. US Corporate bookkeeping client requiring Form W-9, EIN CP 575 letter, last 12 months checking and credit card statements, and prior year Form 1120-S."
                   className="w-full p-3 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white text-slate-900"
                 />
               </div>
 
               <div className="flex flex-wrap gap-1.5">
                 {[
-                  'Food & Dairy supplier onboarding (FSSAI, ISO 22000)',
-                  'Civil contractor statutory compliance (EPFO, ESIC, CGL)',
-                  'IT Security vendors (SOC 2, ISO 27001, Cyber Insurance)'
+                  'US Monthly Bookkeeping (W-9, EIN, 12 months bank & Amex statements, QuickBooks sync)',
+                  'UK Limited Company Year-End & MTD VAT (CRN, UTR, VAT 484, Xero sync)',
+                  'US Multi-State E-commerce Bookkeeping (Stripe, Shopify, Sales Tax Resale Certs)'
                 ].map((example) => (
                   <button
                     key={example}

@@ -346,11 +346,11 @@ function EditWorkflowContent() {
             <p className="text-xs leading-relaxed font-medium">
               {isPublished ? (
                 <>
-                  Modifying this workflow will automatically increment it to <strong>Version {nextVersionNumber}</strong>. Existing vendors currently in-flight on v{workflow.current_version_number} will stay on their version so their document submissions remain stable. New invitations will use <strong>v{nextVersionNumber}</strong>.
+                  Modifying this workflow will automatically increment it to <strong>Version {nextVersionNumber}</strong>. Existing respondents currently in-flight on v{workflow.current_version_number} will stay on their version so their document submissions remain stable. New invitations will use <strong>v{nextVersionNumber}</strong>.
                 </>
               ) : (
                 <>
-                  You are editing an unpublished draft. Changes are saved in-place to this draft. Once satisfied with the configuration, click <strong>Publish Workflow</strong> to make it active for vendor invitations.
+                  You are editing an unpublished draft. Changes are saved in-place to this draft. Once satisfied with the configuration, click <strong>Publish Workflow</strong> to make it active for invitations.
                 </>
               )}
             </p>
@@ -368,17 +368,17 @@ function EditWorkflowContent() {
                 value={workflowName}
                 onChange={(e) => setWorkflowName(e.target.value)}
                 className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 font-medium text-slate-900 bg-white focus:ring-2 focus:ring-indigo-500"
-                placeholder="e.g. Standard Logistics Compliance"
+                placeholder="e.g. US Client Monthly Bookkeeping & Tax Onboarding or UK Ltd Accounts"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Target Vendor Category</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Target Category / Jurisdiction</label>
               <input
                 type="text"
                 value={vendorCategory}
                 onChange={(e) => setVendorCategory(e.target.value)}
                 className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 font-medium text-slate-900 bg-white focus:ring-2 focus:ring-indigo-500"
-                placeholder="e.g. Supply Chain, IT Services, Facilities"
+                placeholder="e.g. US Accounting & Bookkeeping, UK VAT Compliance, Payroll"
               />
             </div>
             <div className="sm:col-span-2">
@@ -417,7 +417,7 @@ function EditWorkflowContent() {
           {showAiRefine && (
             <div className="p-5 border-t border-slate-200 space-y-3 bg-slate-50/50">
               <div className="flex flex-wrap items-center gap-1.5 pb-1">
-                <span className="text-[11px] font-semibold text-slate-700 mr-1">Insert Industry Template:</span>
+                <span className="text-[11px] font-semibold text-slate-700 mr-1">Insert Bookkeeping Preset:</span>
                 {PRESET_PROMPTS.map((p, i) => (
                   <button
                     key={i}
@@ -436,7 +436,7 @@ function EditWorkflowContent() {
                 rows={3}
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
-                placeholder="e.g. Add ISO 27001 certificate and SOC 2 Type II report. Both require expiry tracking. Collect trade license."
+                placeholder="e.g. Add HMRC VAT registration certificate (VAT 484) and last 4 quarters VAT return summaries. VAT returns require quarterly review."
                 className="w-full text-xs p-3 rounded-xl border border-slate-300 bg-white text-slate-900 font-medium focus:ring-2 focus:ring-indigo-500"
               />
               <div className="flex items-center justify-end gap-2">
@@ -470,7 +470,7 @@ function EditWorkflowContent() {
               onChange={(e) => setSchema({ ...schema, approval_required: e.target.checked })}
               className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
             />
-            <span>Require Administrator Approval before Vendor Certification</span>
+            <span>Require Administrator Review before Final Approval</span>
           </label>
 
           <div className="flex items-center gap-2 text-slate-700 font-medium">
@@ -613,7 +613,7 @@ function EditWorkflowContent() {
                             </span>
                             <p className="text-[10px] text-slate-500 font-normal">
                               {isDropdown
-                                ? 'Vendors select one option from this list in the dropdown menu.'
+                                ? 'Respondents select one option from this list in the dropdown menu.'
                                 : '1 choice creates a single-confirmation checkbox; 2+ choices create a multi-select checklist.'}
                             </p>
                           </div>
@@ -734,7 +734,7 @@ function EditWorkflowContent() {
                       type="text"
                       value={field.help_text || ''}
                       onChange={(e) => updateField(idx, { help_text: e.target.value })}
-                      placeholder="Instructions or help text for vendor..."
+                      placeholder="Instructions or help text for respondents..."
                       className="w-full text-xs px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50/60 text-slate-800 placeholder-slate-400 focus:bg-white"
                     />
                   </div>

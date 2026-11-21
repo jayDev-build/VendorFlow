@@ -80,8 +80,8 @@ export default function WorkflowsPage() {
   return (
     <div className="flex-1 flex flex-col min-w-0">
       <TopNav
-        title="Onboarding Workflows"
-        subtitle="Manage compliance templates, published form schemas, and vendor invitation tokens"
+        title="Form & Onboarding Workflows"
+        subtitle="Manage dynamic form schemas, compliance workflows, and participant invitation links across any industry"
         actions={
           <Link
             href="/workflows/new"

@@ -440,8 +440,9 @@ function VendorOnboardingPortalContent() {
   const getFullUrl = (relativeUrl?: string) => {
     if (!relativeUrl) return '';
     if (relativeUrl.startsWith('http')) return relativeUrl;
-    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-    return `${base}${relativeUrl}`;
+    const base = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
+    const path = relativeUrl.startsWith('/') ? relativeUrl : `/${relativeUrl}`;
+    return `${base}${path}`;
   };
 
   if (loading) {
@@ -684,16 +685,16 @@ function VendorOnboardingPortalContent() {
           <div className="p-6 sm:p-7 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <h1 className="text-2xl sm:text-3xl font-normal text-slate-900 tracking-tight">
-                {data?.workflow_name || 'Vendor Onboarding & Compliance'}
+                {data?.workflow_name || 'Submission & Compliance Portal'}
               </h1>
               <span className="self-start sm:self-center text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-50 text-[#673ab7] border border-purple-200">
-                {data?.schema_definition?.vendor_category || 'Vendor Portal'}
+                {data?.schema_definition?.vendor_category || 'Onboarding Portal'}
               </span>
             </div>
 
             <p className="text-sm text-slate-700 font-normal leading-relaxed">
               {data?.schema_definition?.description ||
-                `Please complete the vendor onboarding requirements for ${data?.organization_name}. All submitted files and information are encrypted and verified.`}
+                `Please complete the requested information and documentation for ${data?.organization_name}. All submitted files and information are encrypted and verified.`}
             </p>
 
             <div className="pt-3 border-t border-slate-200 text-xs text-slate-600 flex flex-wrap items-center justify-between gap-2">
@@ -1264,7 +1265,7 @@ function VendorOnboardingPortalContent() {
             <span>Secured by FormGate Enterprise Onboarding</span>
           </div>
           <p className="text-[11px] text-slate-400">
-            This form is encrypted with 256-bit TLS security and compliant with enterprise vendor verification policies.
+            This form is encrypted with 256-bit TLS security and compliant with enterprise verification policies.
           </p>
         </div>
       </div>

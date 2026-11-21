@@ -109,7 +109,9 @@ export const DocumentReviewModal: React.FC<DocumentReviewModalProps> = ({
   };
 
   const downloadFullUrl = document.download_url
-    ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${document.download_url}`
+    ? (document.download_url.startsWith('http')
+        ? document.download_url
+        : `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/+$/, '')}${document.download_url.startsWith('/') ? '' : '/'}${document.download_url}`)
     : '#';
 
   const reviews = (document as DocumentDetail).reviews || [];

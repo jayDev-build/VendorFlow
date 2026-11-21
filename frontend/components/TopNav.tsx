@@ -16,7 +16,7 @@ export const TopNav: React.FC<TopNavProps> = ({ title, subtitle, actions }) => {
   const getPageTitle = () => {
     if (title) return title;
     if (pathname === '/' || pathname.startsWith('/dashboard') || pathname.startsWith('/overview')) return 'Overview';
-    if (pathname.startsWith('/vendors')) return 'Vendors Directory';
+    if (pathname.startsWith('/vendors')) return 'Clients & Bookkeeping Directory';
     if (pathname.startsWith('/workflows/new')) return 'AI Workflow Generator';
     if (pathname.startsWith('/workflows')) return 'Onboarding Workflows';
     if (pathname.startsWith('/documents')) return 'Document Review Queue';

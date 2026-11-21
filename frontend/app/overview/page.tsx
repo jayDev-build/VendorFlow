@@ -142,7 +142,7 @@ export default function DashboardPage() {
     <div className="flex-1 flex flex-col min-w-0">
       <TopNav
         title="Compliance & Onboarding Overview"
-        subtitle="Real-time vendor onboarding pipeline, document verifications, and expiry alerts"
+        subtitle="Real-time intake pipeline, document verifications, and compliance alerts across all industries"
         actions={
           <div className="flex items-center gap-2">
             <button
@@ -158,10 +158,10 @@ export default function DashboardPage() {
               type="button"
               onClick={handleInviteClick}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-800 bg-white hover:bg-slate-50 rounded-lg transition-all border border-slate-300 shadow-2xs hover:shadow-xs cursor-pointer"
-              title="Invite vendor to complete digital onboarding workflow"
+              title="Invite applicant or respondent to complete workflow"
             >
               <UserPlus className="w-3.5 h-3.5 text-slate-600" />
-              <span>Invite Vendor</span>
+              <span>Invite Participant</span>
             </button>
 
             <button
@@ -199,13 +199,13 @@ export default function DashboardPage() {
             className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-all cursor-pointer group"
           >
             <div className="flex items-center justify-between text-slate-700 mb-2">
-              <span className="text-xs font-semibold">Total Vendors</span>
+              <span className="text-xs font-semibold">Total Profiles</span>
               <Users className="w-4 h-4 text-slate-600 group-hover:text-slate-900" />
             </div>
             <div className="text-2xl font-bold text-slate-900 tracking-tight">
               {stats?.total_vendors ?? 0}
             </div>
-            <div className="text-[11px] text-slate-600 font-medium mt-1">Registered suppliers</div>
+            <div className="text-[11px] text-slate-600 font-medium mt-1">Directory entries</div>
           </div>
 
           {/* Approved Vendors */}

@@ -32,7 +32,7 @@ export default function AuthPage() {
   // Sign up specific fields
   const [orgName, setOrgName] = useState('');
   const [fullName, setFullName] = useState('');
-  const [industry, setIndustry] = useState('Supply Chain & Logistics');
+  const [industry, setIndustry] = useState('US & UK Bookkeeping Practice');
 
   // States
   const [loading, setLoading] = useState(false);
@@ -100,10 +100,10 @@ export default function AuthPage() {
             {/* Value Highlights */}
             <div className="space-y-3 pt-2">
               <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight leading-snug">
-                Enterprise Vendor Compliance Made Zero-Touch
+                Client Bookkeeping Intake & Verification Made Zero-Touch
               </h2>
               <p className="text-xs text-slate-400 leading-relaxed font-normal">
-                Join forward-thinking compliance officers automating supplier audits, certificate verifications, and expiry reminders.
+                Join forward-thinking accounting practices automating client onboarding, tax documents, and financial reconciliations.
               </p>
             </div>
 
@@ -163,12 +163,12 @@ export default function AuthPage() {
 
             <div>
               <h3 className="text-lg font-bold text-white tracking-tight">
-                {mode === 'login' ? 'Welcome back to FormGate' : 'Set up your compliance workspace'}
+                {mode === 'login' ? 'Welcome back to FormGate' : 'Set up your accounting workspace'}
               </h3>
               <p className="text-xs text-slate-400 mt-1">
                 {mode === 'login'
                   ? 'Enter your credentials to access your organization dashboard.'
-                  : 'Start automating vendor document lifecycles in under 2 minutes.'}
+                  : 'Start automating client bookkeeping intake in under 2 minutes.'}
               </p>
             </div>
 
@@ -195,7 +195,7 @@ export default function AuthPage() {
                         required
                         value={orgName}
                         onChange={(e) => setOrgName(e.target.value)}
-                        placeholder="e.g. Apex Global Logistics"
+                        placeholder="e.g. Apex Accounting & Advisory LLC"
                         className="w-full text-xs pl-10 pr-3 py-2.5 bg-slate-800/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-medium"
                       />
                     </div>
@@ -221,18 +221,19 @@ export default function AuthPage() {
 
                     <div>
                       <label className="block text-xs font-semibold text-slate-300 mb-1">
-                        Industry Category
+                        Practice Focus
                       </label>
                       <select
                         value={industry}
                         onChange={(e) => setIndustry(e.target.value)}
                         className="w-full text-xs px-3 py-2.5 bg-slate-800/90 border border-slate-700 rounded-xl text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-medium"
                       >
-                        <option value="Supply Chain & Logistics">Supply Chain & Logistics</option>
-                        <option value="IT & Cloud Services">IT & Cloud Services</option>
-                        <option value="Manufacturing & Retail">Manufacturing & Retail</option>
-                        <option value="Healthcare & Staffing">Healthcare & Staffing</option>
-                        <option value="Financial & Audit Services">Financial & Audit Services</option>
+                        <option value="US & UK Bookkeeping Practice">US & UK Bookkeeping Practice</option>
+                        <option value="US Corporate Bookkeeping & Tax (LLC / S-Corp)">US Corporate Bookkeeping & Tax (LLC / S-Corp)</option>
+                        <option value="UK Limited Company Accounts & VAT (Ltd / LLP)">UK Limited Company Accounts & VAT (Ltd / LLP)</option>
+                        <option value="VAT & Multi-State Sales Tax Compliance">VAT & Multi-State Sales Tax Compliance</option>
+                        <option value="Payroll & Wage Reporting">Payroll & Wage Reporting</option>
+                        <option value="General Accounting & Advisory">General Accounting & Advisory</option>
                       </select>
                     </div>
                   </div>

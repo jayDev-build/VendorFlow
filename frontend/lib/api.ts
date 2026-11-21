@@ -2,6 +2,7 @@ import {
   AuthSession,
   DashboardStats,
   Workflow,
+  WorkflowField,
   WorkflowSchemaDefinition,
   VendorListItem,
   VendorDetail,
@@ -12,7 +13,7 @@ import {
   WorkflowResponsesData
 } from './types';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
 
 class ApiClient {
   private getHeaders(isFormData: boolean = false): HeadersInit {
@@ -398,6 +399,116 @@ class ApiClient {
       })
     });
   }
+
+  // --- Unified Client Portal (/portal/[portal_token]) ---
+  async getPortalData(portalToken: string): Promise<UnifiedPortalData> {
+    return this.request<UnifiedPortalData>(`/api/v1/portal/${portalToken}`);
+  }
+
+  async uploadPortalDocument(
+    portalToken: string,
+    assignmentId: string,
+    file: File,
+    fieldId: string,
+    documentType: string,
+    expiryDate?: string
+  ): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('field_id', fieldId);
+    formData.append('document_type', documentType);
+    if (expiryDate) {
+      formData.append('expiry_date', expiryDate);
+    }
+    return this.request(`/api/v1/portal/${portalToken}/assignments/${assignmentId}/documents`, {
+      method: 'POST',
+      body: formData
+    });
+  }
+
+  async submitPortalAssignment(
+    portalToken: string,
+    assignmentId: string,
+    formResponses: Record<string, any>,
+    documentExpiries?: Record<string, string>
+  ): Promise<any> {
+    return this.request(`/api/v1/portal/${portalToken}/assignments/${assignmentId}/submit`, {
+      method: 'POST',
+      body: JSON.stringify({
+        form_responses: formResponses,
+        document_expiries: documentExpiries || {}
+      })
+    });
+  }
+
+  async deletePortalDocument(portalToken: string, documentId: string): Promise<any> {
+    return this.request(`/api/v1/portal/${portalToken}/documents/${documentId}`, {
+      method: 'DELETE'
+    });
+  }
+}
+
+export interface PortalActionRequiredItem {
+  document_id: string;
+  assignment_id?: string;
+  workflow_id?: string;
+  workflow_name: string;
+  field_id: string;
+  document_type: string;
+  original_filename: string;
+  file_size: number;
+  mime_type: string;
+  status: string;
+  review_reason?: string;
+  has_replacement: boolean;
+  view_url: string;
+  download_url: string;
+}
+
+export interface PortalAssignment {
+  id: string;
+  workflow_id: string;
+  workflow_name: string;
+  workflow_description?: string;
+  vendor_category: string;
+  status: string;
+  is_submitted: boolean;
+  submitted_at?: string;
+  approved_at?: string;
+  schema_definition: {
+    name?: string;
+    description?: string;
+    vendor_category?: string;
+    fields: WorkflowField[];
+  };
+  existing_responses: Record<string, any>;
+  existing_documents: {
+    id: string;
+    field_id: string;
+    document_type: string;
+    original_filename: string;
+    file_size: number;
+    mime_type: string;
+    expiry_date?: string;
+    status: string;
+    review_reason?: string;
+    has_replacement: boolean;
+    view_url: string;
+    download_url: string;
+  }[];
+}
+
+export interface UnifiedPortalData {
+  valid: boolean;
+  portal_token: string;
+  client_id: string;
+  client_name: string;
+  client_email: string;
+  client_status: string;
+  organization_name: string;
+  action_required: PortalActionRequiredItem[];
+  assignments: PortalAssignment[];
 }
 
 export const api = new ApiClient();
+export type { WorkflowField } from './types';

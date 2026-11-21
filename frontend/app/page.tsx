@@ -106,23 +106,23 @@ export default function PublicHomePage() {
         {/* Pill Badge */}
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-950/70 border border-indigo-800/60 text-indigo-300 text-xs font-medium shadow-inner">
           <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
-          <span>Next-Gen Enterprise Vendor Compliance Platform</span>
+          <span>Next-Gen UK & US Client Bookkeeping & Accounting Intake</span>
           <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
           <span className="text-indigo-200 font-semibold">v2.4 Live</span>
         </div>
 
         {/* Primary Headline */}
         <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white max-w-5xl mx-auto leading-[1.12]">
-          Automate Vendor Compliance & Expiry Chasing{' '}
+          Automate Client Bookkeeping Intake & Financial Records Collection{' '}
           <span className="bg-gradient-to-r from-indigo-400 via-purple-300 to-indigo-200 bg-clip-text text-transparent">
-            Without WhatsApp Chaos
+            Without Email Chaos
           </span>
         </h1>
 
         {/* Subheadline */}
         <p className="text-base sm:text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed font-normal">
-          Collect, verify, and continuously monitor client & supplier certificates in one unified workspace.
-          AI generates custom forms in seconds, tracks perishable expiration milestones, and sends automated WhatsApp & email reminders before certificates lapse.
+          Collect, verify, and continuously monitor client tax IDs, bank & credit card statements, and statutory filings for UK & US accounting firms.
+          AI generates custom intake workflows in seconds, tracks accounting reference dates & filing deadlines, and sends automated reminders before documents lapse.
         </p>
 
         {/* Dual Primary CTAs */}
@@ -177,7 +177,7 @@ export default function PublicHomePage() {
                 </div>
                 <div className="flex items-center gap-2 text-xs text-slate-400">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                  <span className="font-semibold text-slate-300">Live AI Compliance Queue</span>
+                  <span className="font-semibold text-slate-300">Live AI Bookkeeping Queue</span>
                 </div>
               </div>
 
@@ -186,16 +186,16 @@ export default function PublicHomePage() {
                 {/* Stats Row */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="bg-slate-800/50 border border-slate-700/60 rounded-xl p-3.5">
-                    <div className="text-[11px] font-semibold text-slate-400">Total Registered Vendors</div>
+                    <div className="text-[11px] font-semibold text-slate-400">Total Client Entities</div>
                     <div className="text-2xl font-bold text-white mt-1">142</div>
                     <div className="text-[10px] text-emerald-400 font-semibold mt-0.5 flex items-center gap-1">
                       <span>↑ 18% this month</span>
                     </div>
                   </div>
                   <div className="bg-slate-800/50 border border-slate-700/60 rounded-xl p-3.5">
-                    <div className="text-[11px] font-semibold text-slate-400">Approved Compliance</div>
+                    <div className="text-[11px] font-semibold text-slate-400">Approved & Reconciled</div>
                     <div className="text-2xl font-bold text-emerald-400 mt-1">128</div>
-                    <div className="text-[10px] text-slate-400 font-medium mt-0.5">Audit-ready status</div>
+                    <div className="text-[10px] text-slate-400 font-medium mt-0.5">Filing-ready status</div>
                   </div>
                   <div className="bg-slate-800/50 border border-slate-700/60 rounded-xl p-3.5">
                     <div className="text-[11px] font-semibold text-slate-400">Pending Review</div>
@@ -203,7 +203,7 @@ export default function PublicHomePage() {
                     <div className="text-[10px] text-amber-300 font-medium mt-0.5">Avg turnaround 4m</div>
                   </div>
                   <div className="bg-slate-800/50 border border-slate-700/60 rounded-xl p-3.5">
-                    <div className="text-[11px] font-semibold text-slate-400">Expiring in 30 Days</div>
+                    <div className="text-[11px] font-semibold text-slate-400">Deadlines in 30 Days</div>
                     <div className="text-2xl font-bold text-rose-400 mt-1">5</div>
                     <div className="text-[10px] text-rose-300 font-medium mt-0.5">Auto-chaser active</div>
                   </div>
@@ -217,13 +217,13 @@ export default function PublicHomePage() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-white">Commercial Vehicle Transit Policy</span>
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                          Expires in 18 Days
+                        <span className="text-sm font-bold text-white">IRS Form W-9 & EIN Confirmation CP 575</span>
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                          Ready for Review
                         </span>
                       </div>
                       <div className="text-xs text-slate-400 mt-0.5">
-                        Vendor: <strong className="text-slate-200">Apex Global Freight LLC</strong> • Uploaded via single-use magic link
+                        Client: <strong className="text-slate-200">Apex Cloud Media LLC</strong> • Uploaded via single-use client portal link
                       </div>
                     </div>
                   </div>
@@ -309,14 +309,14 @@ export default function PublicHomePage() {
             </div>
           </div>
 
-          {/* Card 4: No-Login Vendor Portal */}
+          {/* Card 4: No-Login Client Portal */}
           <div className="bg-slate-900/60 border border-slate-800 hover:border-emerald-500/50 rounded-2xl p-6 space-y-4 transition-all hover:shadow-xl hover:shadow-emerald-500/5 group">
             <div className="w-12 h-12 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
               <Send className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-bold text-white">No-Login Vendor Experience</h3>
+            <h3 className="text-base font-bold text-white">No-Login Client Experience</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Suppliers, drivers, and external vendors hate creating passwords. High-entropy cryptographically hashed invitation tokens grant single-click upload access directly on mobile or desktop.
+              Business owners and founders hate creating yet another account. High-entropy cryptographically hashed invitation tokens grant single-click intake access directly on mobile or desktop.
             </p>
             <div className="pt-2 text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
               <span>Zero-Friction Submission Rates</span>
@@ -361,7 +361,7 @@ export default function PublicHomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-14">
           <div className="text-center space-y-3 max-w-2xl mx-auto">
             <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">Streamlined Workflow</span>
-            <h2 className="text-3xl font-extrabold text-white">From Chaotic Folders to 100% Audit Readiness</h2>
+            <h2 className="text-3xl font-extrabold text-white">From Chaotic Email Threads to Reconciled Books</h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
@@ -370,9 +370,9 @@ export default function PublicHomePage() {
               <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white font-bold text-xs flex items-center justify-center">
                 1
               </div>
-              <h3 className="text-sm font-bold text-white">Describe or Pick Workflow Preset</h3>
+              <h3 className="text-sm font-bold text-white">Describe or Pick Bookkeeping Preset</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Describe required certificates in plain English (e.g. CA Tax Audit, Logistics Fleet RC, Clinical Practitioner Licensing) and AI generates fields and validation automatically.
+                Describe required financial documents in plain English (e.g. US Monthly Bookkeeping, IRS Form W-9, UK Companies House accounts, MTD VAT returns) and AI generates fields and validation automatically.
               </p>
             </div>
 
@@ -381,9 +381,9 @@ export default function PublicHomePage() {
               <div className="w-8 h-8 rounded-lg bg-purple-600 text-white font-bold text-xs flex items-center justify-center">
                 2
               </div>
-              <h3 className="text-sm font-bold text-white">Share Secure Link (No Vendor Login)</h3>
+              <h3 className="text-sm font-bold text-white">Share Secure Link (No Client Login)</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Get a shareable form link immediately. Share it on WhatsApp, email, or Slack. Vendors upload their certificates and dates without sign-up friction.
+                Get a shareable intake portal link immediately. Share it via email or client onboarding message. Clients upload their bank statements, tax IDs, and certificates without sign-up friction.
               </p>
             </div>
 
@@ -394,7 +394,7 @@ export default function PublicHomePage() {
               </div>
               <h3 className="text-sm font-bold text-white">Auto-Verify & Continuous Expiry Chasing</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Inspect submissions in the review queue. FormGate monitors expiration dates in the background and sends automated 30, 7, and 1-day reminders automatically.
+                Inspect submissions in the review queue. FormGate monitors expiration dates (e.g. tax exemptions, accounting reference dates) in the background and sends automated reminders automatically.
               </p>
             </div>
           </div>

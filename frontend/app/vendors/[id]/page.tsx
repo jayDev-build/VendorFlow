@@ -92,7 +92,7 @@ function VendorDetailContent() {
 
   const handleDeleteVendor = async () => {
     if (!vendor) return;
-    if (!window.confirm(`Are you sure you want to permanently delete vendor "${vendor.name}" and all associated compliance records?`)) {
+    if (!window.confirm(`Are you sure you want to permanently delete client profile "${vendor.name}" and all associated compliance records?`)) {
       return;
     }
     try {
@@ -253,8 +253,8 @@ function VendorDetailContent() {
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
           <div className="p-5 border-b border-slate-200 flex items-center justify-between">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">Required Documents & Verification Status</h2>
-              <p className="text-xs text-slate-700 font-medium">Inspect uploaded vendor files, preview certificates, and execute verification approvals</p>
+              <h2 className="text-base font-semibold text-slate-900">Required Financial Documents & Verification Status</h2>
+              <p className="text-xs text-slate-700 font-medium">Inspect uploaded client tax returns, bank statements, and accounting records, and execute verification approvals</p>
             </div>
             <div className="flex items-center gap-2.5">
               <button

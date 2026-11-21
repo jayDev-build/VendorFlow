@@ -21,7 +21,7 @@ import { api } from '@/lib/api';
 
 const navItems = [
   { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Vendors', href: '/vendors', icon: Users },
+  { name: 'Directory', href: '/vendors', icon: Users },
   { name: 'Workflows', href: '/workflows', icon: GitBranch },
   { name: 'Documents', href: '/documents', icon: FileCheck2 },
   { name: 'Expiry Tracker', href: '/expiry', icon: ClockAlert },
