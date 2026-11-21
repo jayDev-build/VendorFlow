@@ -56,29 +56,45 @@ function UnifiedClientPortalContent() {
 
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  const fetchPortalData = async () => {
+  const fetchPortalData = async (isBackground: boolean = false) => {
     if (!token) return;
     try {
-      setLoading(true);
+      if (!isBackground) {
+        setLoading(true);
+      }
       setErrorMsg('');
       const data = await api.getPortalData(token);
       setPortalData(data);
 
-      // Initialize responses and expiries map from assignments
-      const rMap: Record<string, Record<string, any>> = {};
-      const eMap: Record<string, Record<string, string>> = {};
-      data.assignments.forEach((assign) => {
-        rMap[assign.id] = { ...(assign.existing_responses || {}) };
-        const aExp: Record<string, string> = {};
-        assign.existing_documents.forEach((d) => {
-          if (d.expiry_date) {
-            aExp[d.field_id] = d.expiry_date.split('T')[0];
-          }
+      // Preserve any form field values the user has already typed before/during upload
+      setResponsesMap((prev) => {
+        const merged: Record<string, Record<string, any>> = {};
+        data.assignments.forEach((assign) => {
+          merged[assign.id] = {
+            ...(assign.existing_responses || {}),
+            ...(prev[assign.id] || {})
+          };
         });
-        eMap[assign.id] = aExp;
+        return merged;
       });
-      setResponsesMap(rMap);
-      setExpiriesMap(eMap);
+
+      // Preserve document expiries entered by user
+      setExpiriesMap((prev) => {
+        const merged: Record<string, Record<string, string>> = {};
+        data.assignments.forEach((assign) => {
+          const aExp: Record<string, string> = {};
+          assign.existing_documents.forEach((d) => {
+            if (d.expiry_date) {
+              aExp[d.field_id] = d.expiry_date.split('T')[0];
+            }
+          });
+          merged[assign.id] = {
+            ...aExp,
+            ...(prev[assign.id] || {})
+          };
+        });
+        return merged;
+      });
 
       if (data.assignments.length > 0 && !activeTabId) {
         setActiveTabId(data.assignments[0].id);
@@ -86,7 +102,9 @@ function UnifiedClientPortalContent() {
     } catch (err: any) {
       setErrorMsg(err.message || 'Client portal link not found or expired');
     } finally {
-      setLoading(false);
+      if (!isBackground) {
+        setLoading(false);
+      }
     }
   };
 
@@ -111,8 +129,8 @@ function UnifiedClientPortalContent() {
       await api.uploadPortalDocument(token, assignmentId, file, fieldId, documentType, expiry);
 
       setUploadSuccessMsg(`Document '${file.name}' uploaded successfully.`);
-      // Refresh portal state to update action required and assignment documents
-      await fetchPortalData();
+      // Refresh portal state in background to update documents without unmounting or resetting form inputs
+      await fetchPortalData(true);
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to upload document');
     } finally {
@@ -133,7 +151,7 @@ function UnifiedClientPortalContent() {
         ...prev,
         [assignment.id]: res.message || 'Workflow submitted successfully.'
       }));
-      await fetchPortalData();
+      await fetchPortalData(true);
     } catch (err: any) {
       setErrorMsg(err.message || 'Submission failed. Please check required fields.');
     } finally {
@@ -315,6 +333,7 @@ function UnifiedClientPortalContent() {
                           if (file && item.assignment_id) {
                             handleUploadFile(item.assignment_id, item.field_id, item.document_type, file, trackingKey);
                           }
+                          e.target.value = '';
                         }}
                       />
                       <label
@@ -626,6 +645,7 @@ function UnifiedClientPortalContent() {
                                 if (file) {
                                   handleUploadFile(activeAssignment.id, field.id, field.label, file, trackingKey);
                                 }
+                                e.target.value = '';
                               }}
                             />
                             <label

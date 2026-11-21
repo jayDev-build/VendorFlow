@@ -932,6 +932,7 @@ function VendorOnboardingPortalContent() {
                                   if (e.target.files?.[0]) {
                                     handleFileUpload(field, e.target.files[0]);
                                   }
+                                  e.target.value = '';
                                 }}
                                 className="hidden"
                               />
@@ -998,6 +999,7 @@ function VendorOnboardingPortalContent() {
                                 if (e.target.files?.[0]) {
                                   handleFileUpload(field, e.target.files[0]);
                                 }
+                                e.target.value = '';
                               }}
                               className="hidden"
                             />
