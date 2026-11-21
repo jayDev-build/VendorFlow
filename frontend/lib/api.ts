@@ -111,10 +111,26 @@ class ApiClient {
     const token = localStorage.getItem('formgate_token') || localStorage.getItem('vendorflow_token');
     const userStr = localStorage.getItem('formgate_user') || localStorage.getItem('vendorflow_user');
     const orgStr = localStorage.getItem('formgate_org') || localStorage.getItem('vendorflow_org');
+    let user = null;
+    let org = null;
+    try {
+      if (userStr && userStr !== 'undefined' && userStr !== 'null') {
+        user = JSON.parse(userStr);
+      }
+    } catch (e) {
+      console.warn('Failed to parse cached user session:', e);
+    }
+    try {
+      if (orgStr && orgStr !== 'undefined' && orgStr !== 'null') {
+        org = JSON.parse(orgStr);
+      }
+    } catch (e) {
+      console.warn('Failed to parse cached org session:', e);
+    }
     return {
       token,
-      user: userStr ? JSON.parse(userStr) : null,
-      org: orgStr ? JSON.parse(orgStr) : null
+      user,
+      org
     };
   }
 

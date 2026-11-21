@@ -42,6 +42,7 @@ export const Sidebar: React.FC = () => {
 
   // Do not render sidebar on public landing page, interactive demo, auth pages, or client portal
   if (
+    !pathname ||
     pathname === '/' ||
     pathname.startsWith('/demo') ||
     pathname.startsWith('/auth') ||
@@ -98,7 +99,7 @@ export const Sidebar: React.FC = () => {
           const isActive =
             item.href === '/dashboard'
               ? pathname === '/dashboard' || pathname === '/overview'
-              : pathname.startsWith(item.href);
+              : !!pathname?.startsWith(item.href);
           const Icon = item.icon;
           return (
             <Link
