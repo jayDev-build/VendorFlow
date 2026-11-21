@@ -40,12 +40,13 @@ export const Sidebar: React.FC = () => {
     if (session.user) setUser(session.user);
   }, []);
 
-  // Do not render sidebar on public landing page, interactive demo, auth pages, or vendor portal
+  // Do not render sidebar on public landing page, interactive demo, auth pages, or client portal
   if (
     pathname === '/' ||
     pathname.startsWith('/demo') ||
     pathname.startsWith('/auth') ||
-    pathname.startsWith('/vendor/onboard')
+    pathname.startsWith('/vendor/onboard') ||
+    pathname.startsWith('/portal')
   ) {
     return null;
   }
