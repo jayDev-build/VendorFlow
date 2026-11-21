@@ -36,7 +36,7 @@ export default function PublicHomePage() {
     e.preventDefault();
     const companyParam = prospectCompany.trim()
       ? encodeURIComponent(prospectCompany.trim())
-      : 'Sample_Prospect_Corp';
+      : 'Sample_Firm';
     router.push(`/demo?company=${companyParam}`);
   };
 
@@ -62,7 +62,7 @@ export default function PublicHomePage() {
                   AI
                 </span>
               </span>
-              <span className="text-[10px] text-slate-400 tracking-wide font-medium">Compliance & Expiry SaaS</span>
+              <span className="text-[10px] text-slate-400 tracking-wide font-medium">Bookkeeping Intake & Portal</span>
             </div>
           </Link>
 
@@ -173,7 +173,7 @@ export default function PublicHomePage() {
                   <span className="w-3 h-3 rounded-full bg-rose-500/70" />
                   <span className="w-3 h-3 rounded-full bg-amber-500/70" />
                   <span className="w-3 h-3 rounded-full bg-emerald-500/70" />
-                  <span className="ml-2 text-xs font-mono text-slate-400">formgate.io/dashboard</span>
+                  <span className="ml-2 text-xs font-mono text-slate-400">formgate.in/dashboard</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-slate-400">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
@@ -254,12 +254,12 @@ export default function PublicHomePage() {
       {/* 4. Features / Value Prop Grid */}
       <section id="features" className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-16">
         <div className="text-center space-y-4 max-w-3xl mx-auto">
-          <div className="text-xs font-bold uppercase tracking-wider text-indigo-400">Core Architecture</div>
+          <div className="text-xs font-bold uppercase tracking-wider text-indigo-400">Built for Bookkeepers & Accountants</div>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-            Engineered for Zero WhatsApp Chaos & Total Audit Certainty
+            Engineered for Zero Email & Drive Chaos
           </h2>
           <p className="text-sm sm:text-base text-slate-400 font-normal">
-            Every feature is purpose-built to eliminate manual chase emails, buried WhatsApp PDFs, and frantic auditor preparation.
+            Every feature is purpose-built to eliminate manual chase emails, buried email attachments, messy Google Drive folders, and frantic tax-deadline panic.
           </p>
         </div>
 
@@ -269,12 +269,12 @@ export default function PublicHomePage() {
             <div className="w-12 h-12 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
               <Sparkles className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-bold text-white">AI Workflow & Schema Generator</h3>
+            <h3 className="text-base font-bold text-white">AI Intake Workflow Generator</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Paste unformatted compliance policies or industry guidelines in plain English. FormGate generates structured schemas, document upload fields, and validation logic instantly.
+              Describe your client onboarding requirements or tax checklist in plain English. FormGate generates customized client intake forms, document requests, and validation rules in seconds.
             </p>
             <div className="pt-2 text-[11px] font-semibold text-indigo-400 flex items-center gap-1">
-              <span>Dynamic AI Inference Engine</span>
+              <span>AI-Powered Intake Generator</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </div>
           </div>
@@ -284,12 +284,12 @@ export default function PublicHomePage() {
             <div className="w-12 h-12 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400 group-hover:scale-110 transition-transform">
               <Clock className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-bold text-white">30, 7, 1-Day Expiry Radar</h3>
+            <h3 className="text-base font-bold text-white">30, 14, 7-Day Deadline Radar</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Background workers track certificate expiration dates independently of browser sessions. Idempotent schedules dispatch reminders automatically before suppliers fall out of compliance.
+              FormGate automatically monitors annual filing deadlines, accounting reference dates, and tax exemption expirations. Automated reminders dispatch before clients miss key filing windows.
             </p>
             <div className="pt-2 text-[11px] font-semibold text-purple-400 flex items-center gap-1">
-              <span>Zero-Touch Reminder Scheduler</span>
+              <span>Automated Deadline Chaser</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </div>
           </div>
@@ -299,12 +299,12 @@ export default function PublicHomePage() {
             <div className="w-12 h-12 rounded-xl bg-rose-600/20 border border-rose-500/30 flex items-center justify-center text-rose-400 group-hover:scale-110 transition-transform">
               <AlertTriangle className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-bold text-white">1-Click Partial Rejection</h3>
+            <h3 className="text-base font-bold text-white">1-Click Document Feedback & Rejection</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Never reject an entire 15-document onboarding submission because one PDF is blurry. Reject only the flagged file with mandatory reviewer feedback and an instant re-upload link.
+              Never reject an entire client intake packet because one bank statement is blurry or a W-9 is outdated. Reject only the specific file with reviewer feedback and an instant re-upload link.
             </p>
             <div className="pt-2 text-[11px] font-semibold text-rose-400 flex items-center gap-1">
-              <span>Selective Resubmission Magic Links</span>
+              <span>Targeted Resubmission Links</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </div>
           </div>
@@ -316,10 +316,10 @@ export default function PublicHomePage() {
             </div>
             <h3 className="text-base font-bold text-white">No-Login Client Experience</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Business owners and founders hate creating yet another account. High-entropy cryptographically hashed invitation tokens grant single-click intake access directly on mobile or desktop.
+              Business owners hate creating another login just to send documents. Secure, single-click magic links let clients upload tax IDs, statements, and company filings directly from any phone or browser.
             </p>
             <div className="pt-2 text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
-              <span>Zero-Friction Submission Rates</span>
+              <span>Zero-Friction Client Onboarding</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </div>
           </div>
@@ -329,12 +329,12 @@ export default function PublicHomePage() {
             <div className="w-12 h-12 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
               <Lock className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-bold text-white">Strict Multi-Tenant Vault</h3>
+            <h3 className="text-base font-bold text-white">Encrypted Private Client Vault</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Server-side organization isolation enforces tenant verification on every query. Documents are stored privately with unpredictable UUID keys and accessed via short-lived HMAC tokens.
+              Every accounting firm's data is strictly isolated with bank-grade encryption. Financial statements are stored in private cloud vaults and accessible only through time-limited, secure viewing links.
             </p>
             <div className="pt-2 text-[11px] font-semibold text-blue-400 flex items-center gap-1">
-              <span>Cryptographic Storage Isolation</span>
+              <span>Bank-Grade Cloud Encryption</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </div>
           </div>
@@ -344,12 +344,12 @@ export default function PublicHomePage() {
             <div className="w-12 h-12 rounded-xl bg-amber-600/20 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
               <ShieldCheck className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-bold text-white">Full Regulatory Audit Trail</h3>
+            <h3 className="text-base font-bold text-white">Complete Audit Trail & Timestamping</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Every status change, certificate approval, rejection comment, and workflow publication is logged into immutable audit records. Export compliance records for ISO/SOC2 audits in 1 click.
+              Every document upload, reviewer approval, rejection reason, and deadline reminder is logged with immutable timestamps. Keep your firm completely audit-ready for every tax season.
             </p>
             <div className="pt-2 text-[11px] font-semibold text-amber-400 flex items-center gap-1">
-              <span>Auditor-Ready Compliance Logs</span>
+              <span>Audit-Ready Client Records</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </div>
           </div>
@@ -383,7 +383,7 @@ export default function PublicHomePage() {
               </div>
               <h3 className="text-sm font-bold text-white">Share Secure Link (No Client Login)</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Get a shareable intake portal link immediately. Share it via email or client onboarding message. Clients upload their bank statements, tax IDs, and certificates without sign-up friction.
+                Get a shareable intake portal link immediately. Share it via email or client onboarding message. Clients upload their bank statements, tax IDs, and financial records without sign-up friction.
               </p>
             </div>
 
@@ -392,9 +392,9 @@ export default function PublicHomePage() {
               <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white font-bold text-xs flex items-center justify-center">
                 3
               </div>
-              <h3 className="text-sm font-bold text-white">Auto-Verify & Continuous Expiry Chasing</h3>
+              <h3 className="text-sm font-bold text-white">Review Queue & Deadline Tracking</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Inspect submissions in the review queue. FormGate monitors expiration dates (e.g. tax exemptions, accounting reference dates) in the background and sends automated reminders automatically.
+                Inspect submissions in the review queue. FormGate tracks filing deadlines and document expiration dates (e.g. tax filings, accounting reference dates) and sends automated email reminders before due dates.
               </p>
             </div>
           </div>
@@ -405,18 +405,18 @@ export default function PublicHomePage() {
       <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full">
         <div className="bg-gradient-to-r from-indigo-950/80 via-slate-900 to-indigo-950/80 border border-indigo-700/60 rounded-3xl p-8 sm:p-12 text-center space-y-6 shadow-2xl relative overflow-hidden">
           <div className="absolute -right-20 -top-20 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
-          
+
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-300 text-xs font-semibold border border-indigo-500/20">
             <Sparkles className="w-3.5 h-3.5" />
             <span>Personalized Prospect Sandbox</span>
           </div>
 
           <h2 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
-            See FormGate Customized For Your Company
+            See FormGate Customized For Your Firm
           </h2>
 
           <p className="text-sm text-slate-300 max-w-xl mx-auto">
-            Test the live interactive review queue, inspect mock vendor certificates, and test 1-click partial rejection simulated for your organization.
+            Test the live review queue, inspect sample client tax filings, and test 1-click document feedback simulated for your firm.
           </p>
 
           <form onSubmit={handleLaunchDemo} className="max-w-md mx-auto flex flex-col sm:flex-row items-center gap-2.5 pt-2">
@@ -426,7 +426,7 @@ export default function PublicHomePage() {
                 type="text"
                 value={prospectCompany}
                 onChange={(e) => setProspectCompany(e.target.value)}
-                placeholder="Enter your company name..."
+                placeholder="Enter your accounting firm name..."
                 className="w-full text-xs pl-10 pr-3 py-3 bg-slate-950/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-medium"
               />
             </div>
@@ -442,10 +442,10 @@ export default function PublicHomePage() {
           <div className="text-[11px] text-slate-400 font-medium pt-1">
             Or try pre-loaded demo:{' '}
             <Link
-              href="/demo?company=Sample_Prospect_Corp"
+              href="/demo?company=Sample_Firm"
               className="text-indigo-400 hover:text-indigo-300 underline font-semibold"
             >
-              Sample Prospect Corp →
+              Sample Firm →
             </Link>
           </div>
         </div>
@@ -462,30 +462,30 @@ export default function PublicHomePage() {
           <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-2">
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <HelpCircle className="w-4 h-4 text-indigo-400 shrink-0" />
-              <span>Do my vendors need to create an account or install an app?</span>
+              <span>Do my clients need to create an account or remember passwords?</span>
             </h3>
             <p className="text-xs text-slate-400 leading-relaxed pl-6">
-              No. FormGate uses secure, single-use cryptographically hashed token links. Vendors can open the link directly in any mobile or desktop browser, fill out details, upload certificates, and submit in seconds without password friction.
+              No. Clients receive a secure, one-click magic link. They can open it directly on mobile or desktop, enter their entity details, upload bank statements and tax filings, and submit in minutes without creating an account or downloading an app.
             </p>
           </div>
 
           <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-2">
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <HelpCircle className="w-4 h-4 text-indigo-400 shrink-0" />
-              <span>How does partial rejection work?</span>
+              <span>How does document rejection and feedback work?</span>
             </h3>
             <p className="text-xs text-slate-400 leading-relaxed pl-6">
-              If an applicant uploads 6 valid documents and 1 expired or illegible file, you can reject only that specific document with a required reason. FormGate generates a targeted resubmission link where the vendor re-uploads just the requested file while previously approved documents remain locked and approved.
+              If a client uploads 6 valid records and 1 blurry bank statement, you can reject just that specific file with an explanation. FormGate sends the client a targeted link to re-upload only the requested document, leaving all previously approved records intact.
             </p>
           </div>
 
           <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-2">
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <HelpCircle className="w-4 h-4 text-indigo-400 shrink-0" />
-              <span>How are certificate expirations tracked?</span>
+              <span>How are filing deadlines and document renewals tracked?</span>
             </h3>
             <p className="text-xs text-slate-400 leading-relaxed pl-6">
-              FormGate runs a background cron engine that scans all active documents against configurable reminder milestones (e.g. 30, 7, and 1-day thresholds). It dispatches notifications with deduplication keys, preventing double-sending while ensuring critical renewals are never missed.
+              FormGate automatically monitors expiration dates and accounting reference dates against preset intervals (e.g., 30, 14, and 7 days). It sends automated email reminders to clients on your behalf so tax filings and statements are never received late.
             </p>
           </div>
         </div>
@@ -499,9 +499,9 @@ export default function PublicHomePage() {
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <div className="font-bold text-sm text-white">FormGate AI</div>
+              <div className="font-bold text-sm text-white">FormGate</div>
               <div className="text-[11px] text-slate-400 font-normal">
-                Enterprise AI Compliance & Document Lifecycle Platform
+                Client Bookkeeping Intake & Financial Document Portal
               </div>
             </div>
           </div>
@@ -510,7 +510,7 @@ export default function PublicHomePage() {
             <Link href="/auth" className="hover:text-white transition-colors">
               Sign In
             </Link>
-            <Link href="/demo?company=Sample_Prospect_Corp" className="hover:text-white transition-colors">
+            <Link href="/demo?company=Sample_Firm" className="hover:text-white transition-colors">
               Interactive Sandbox
             </Link>
             <Link href="/dashboard" className="hover:text-white transition-colors">
@@ -522,7 +522,7 @@ export default function PublicHomePage() {
           </div>
 
           <div className="text-xs text-slate-400">
-            © 2026 FormGate AI Inc. All rights reserved.
+            © 2026 FormGate. All rights reserved.
           </div>
         </div>
       </footer>
