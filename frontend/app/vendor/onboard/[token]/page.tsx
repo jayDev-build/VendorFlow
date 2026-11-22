@@ -89,19 +89,19 @@ function VendorOnboardingPortalContent() {
         if (token.startsWith('resubmit-sample-') || token.includes('sample') || token.includes('demo')) {
           const sampleData: PublicInvitationData = {
             valid: true,
-            email: 'contact@zenithfacility.com',
-            organization_name: 'FormGate Enterprise',
-            workflow_name: 'Facility Management Statutory Verification',
-            workflow_description: 'Statutory compliance verification and single-file document resubmission portal for facility management contractors.',
-            vendor_category: 'Facility Management',
+            email: 'accounts@cotswoldcommerce.co.uk',
+            organization_name: 'FormGate',
+            workflow_name: 'UK Limited Company Bookkeeping & VAT Intake',
+            workflow_description: 'Bookkeeping intake and single-file document resubmission portal for Cotswold Commerce Ltd.',
+            vendor_category: 'UK Accounting & Bookkeeping',
             expires_at: '2026-12-31T23:59:59Z',
             is_submitted: false,
             schema_definition: {
-              name: 'Facility Management Statutory Verification',
-              vendor_category: 'Facility Management',
-              description: 'Statutory compliance verification for facility contractors.',
+              name: 'UK Limited Company Bookkeeping & VAT Intake',
+              vendor_category: 'UK Accounting & Bookkeeping',
+              description: 'Bookkeeping intake and single-file document resubmission portal for Cotswold Commerce Ltd.',
               approval_required: true,
-              reminder_rules: [30, 7, 1],
+              reminder_rules: [30, 14, 7],
               generated_questions: [],
               assumptions: [],
               warnings: [],
@@ -116,8 +116,8 @@ function VendorOnboardingPortalContent() {
                   max_file_size_mb: 5
                 },
                 {
-                  id: 'field_gst_cert',
-                  label: 'GST Tax Invoice & Registration Proof',
+                  id: 'field_bank_statements',
+                  label: '12 Months UK Business Bank Statements',
                   field_type: 'file_upload',
                   required: true,
                   track_expiry: false,
@@ -126,7 +126,7 @@ function VendorOnboardingPortalContent() {
                 },
                 {
                   id: 'field_comm_reg',
-                  label: 'Commercial Registration Proof (Blurry Scan)',
+                  label: 'HMRC VAT Certificate & MTD Summary (Blurry Scan)',
                   field_type: 'file_upload',
                   required: true,
                   track_expiry: false,
@@ -135,7 +135,7 @@ function VendorOnboardingPortalContent() {
                 },
                 {
                   id: 'field_cgl_policy',
-                  label: 'Certificate of Insurance (OCP Policy)',
+                  label: 'Companies House Certificate of Incorporation',
                   field_type: 'file_upload',
                   required: true,
                   track_expiry: true,
@@ -145,27 +145,27 @@ function VendorOnboardingPortalContent() {
               ]
             },
             existing_responses: {
-              field_legal_name: 'Zenith Facility Solutions Private Limited'
+              field_legal_name: 'Cotswold Commerce Ltd'
             },
             existing_documents: [
               {
-                id: 'doc-approved-gst',
-                field_id: 'field_gst_cert',
-                document_type: 'GST Tax Invoice & Registration Proof',
-                original_filename: 'A4-S1-GST-Invoice-Format_page-0001-scaled.jpg',
+                id: 'doc-approved-bank',
+                field_id: 'field_bank_statements',
+                document_type: '12 Months UK Business Bank Statements',
+                original_filename: 'Cotswold_Commerce_Bank_Statements_2026.pdf',
                 status: 'APPROVED',
                 file_size: 331876,
-                mime_type: 'image/jpeg',
+                mime_type: 'application/pdf',
                 view_url: '/A4-S1-GST-Invoice-Format_page-0001-scaled.jpg',
                 download_url: '/A4-S1-GST-Invoice-Format_page-0001-scaled.jpg'
               },
               {
-                id: 'doc-rejected-comm',
+                id: 'doc-rejected-vat',
                 field_id: 'field_comm_reg',
-                document_type: 'Commercial Registration Proof (Blurry Scan)',
-                original_filename: 'texture-blurry-text-open-textbook-260nw-1175839786.webp',
+                document_type: 'HMRC VAT Certificate & MTD Summary (Blurry Scan)',
+                original_filename: 'Cotswold_Retail_HMRC_VAT484_Scan.webp',
                 status: 'REJECTED',
-                review_reason: 'Illegible & blurry text scan. Document contents and registration number cannot be verified.',
+                review_reason: 'Illegible & blurry text scan. 9-digit HMRC VAT registration number and effective date cannot be verified.',
                 file_size: 8094,
                 mime_type: 'image/webp',
                 has_replacement: false,
@@ -173,10 +173,10 @@ function VendorOnboardingPortalContent() {
                 download_url: '/texture-blurry-text-open-textbook-260nw-1175839786.webp'
               },
               {
-                id: 'doc-approved-cgl',
+                id: 'doc-approved-corp',
                 field_id: 'field_cgl_policy',
-                document_type: 'Certificate of Insurance (OCP Policy)',
-                original_filename: 'owner-and-protective-OCP-insurance-certificate-template.jpg',
+                document_type: 'Companies House Certificate of Incorporation',
+                original_filename: 'Cotswold_Commerce_Certificate_of_Incorporation.jpg',
                 status: 'APPROVED',
                 file_size: 51098,
                 mime_type: 'image/jpeg',

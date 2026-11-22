@@ -188,7 +188,7 @@ function SalesDemoContent() {
 
   // Prospect company query param
   const rawCompanyParam = searchParams.get('company');
-  const [companyName, setCompanyName] = useState('Sample Prospect Corp');
+  const [companyName, setCompanyName] = useState('Sample Firm');
   const [isEditingCompany, setIsEditingCompany] = useState(false);
   const [companyInput, setCompanyInput] = useState('');
 
@@ -207,8 +207,8 @@ function SalesDemoContent() {
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [dispatchedLinkResult, setDispatchedLinkResult] = useState<{
     url: string;
-    vendorName: string;
-    vendorEmail: string;
+    clientName: string;
+    clientEmail: string;
     reason: string;
   } | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -239,7 +239,7 @@ function SalesDemoContent() {
         setCompanyInput(formatted);
       }
     } else {
-      setCompanyInput('Sample Prospect Corp');
+      setCompanyInput('Sample Firm');
     }
   }, [rawCompanyParam]);
 
@@ -295,8 +295,8 @@ function SalesDemoContent() {
       // Trigger high-converting top-right pop-up banner
       setToastNotification({
         visible: true,
-        title: 'Vendor Magic Link Dispatched!',
-        message: `Notification sent to ${docToReject.vendor_email}. The vendor resubmits only "${docToReject.document_type}" without losing prior approved files.`,
+        title: 'Client Magic Link Dispatched!',
+        message: `Notification sent to ${docToReject.vendor_email}. The client resubmits only "${docToReject.document_type}" without losing prior approved files.`,
         recipientEmail: docToReject.vendor_email,
         targetDocName: docToReject.document_type,
         linkUrl: generatedUrl
@@ -406,7 +406,7 @@ function SalesDemoContent() {
             >
               <div className="flex items-center gap-3">
                 <Users className="w-4 h-4" />
-                <span>Vendors</span>
+                <span>Clients</span>
               </div>
               <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${activeTab === 'vendors' ? 'bg-indigo-700 text-white' : 'bg-slate-800 text-slate-400'}`}>
                 5
@@ -487,10 +487,10 @@ function SalesDemoContent() {
               </div>
               <div className="min-w-0">
                 <div className="text-xs font-semibold text-white truncate">
-                  Compliance Officer
+                  Senior Bookkeeper
                 </div>
                 <div className="text-[11px] text-slate-400 truncate">
-                  compliance@{companyName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'company'}.com
+                  onboarding@{companyName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'firm'}.com
                 </div>
               </div>
             </div>
@@ -591,15 +591,15 @@ function SalesDemoContent() {
           <div>
             <h1 className="text-lg font-semibold text-slate-900 tracking-tight flex items-center gap-2">
               {activeTab === 'documents' && 'Document Review Queue'}
-              {activeTab === 'overview' && 'Compliance & Onboarding Overview'}
-              {activeTab === 'vendors' && 'Vendors Directory'}
+              {activeTab === 'overview' && 'Intake & Deadline Overview'}
+              {activeTab === 'vendors' && 'Clients Directory'}
               {activeTab === 'workflows' && 'Onboarding Workflows'}
               {activeTab === 'expiry' && 'Document Expiry Tracker'}
             </h1>
             <p className="text-xs text-slate-700 font-medium mt-0.5">
-              {activeTab === 'documents' && 'Manage compliance verifications, examine attachments, and execute server-side approvals'}
-              {activeTab === 'overview' && 'Real-time vendor onboarding pipeline, document verifications, and expiry alerts'}
-              {activeTab === 'vendors' && `Full registry of active and onboarding suppliers for ${companyName}`}
+              {activeTab === 'documents' && 'Manage document verifications, examine attachments, and execute server-side approvals'}
+              {activeTab === 'overview' && 'Real-time client onboarding pipeline, document verifications, and deadline alerts'}
+              {activeTab === 'vendors' && `Full registry of active and onboarding clients for ${companyName}`}
               {activeTab === 'workflows' && 'Automated compliance blueprints generated with natural language AI'}
               {activeTab === 'expiry' && 'Track document expirations and manage proactive compliance notifications'}
             </p>
@@ -627,7 +627,7 @@ function SalesDemoContent() {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-800 bg-white hover:bg-slate-50 rounded-lg transition-all border border-slate-300 shadow-2xs hover:shadow-xs cursor-pointer"
             >
               <UserPlus className="w-3.5 h-3.5 text-slate-600" />
-              <span>Invite Vendor</span>
+              <span>Invite Client</span>
             </button>
 
             <button
@@ -678,7 +678,7 @@ function SalesDemoContent() {
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search type or vendor..."
+                  placeholder="Search document type or client..."
                   className="w-full text-xs pl-9 pr-3 py-2 rounded-lg border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 font-medium placeholder-slate-500"
                 />
               </div>
@@ -691,7 +691,7 @@ function SalesDemoContent() {
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-100/70 text-slate-800 font-bold uppercase tracking-wider text-[11px]">
                       <th className="py-3.5 px-4">Document Type</th>
-                      <th className="py-3.5 px-4">Vendor</th>
+                      <th className="py-3.5 px-4">Client</th>
                       <th className="py-3.5 px-4">Status</th>
                       <th className="py-3.5 px-4">File Details</th>
                       <th className="py-3.5 px-4">Expiry Date</th>
@@ -728,7 +728,7 @@ function SalesDemoContent() {
                             )}
                           </td>
 
-                          {/* Vendor */}
+                          {/* Client */}
                           <td className="py-3.5 px-4">
                             <div className="font-semibold text-slate-900">
                               {doc.vendor_name}
@@ -827,11 +827,11 @@ function SalesDemoContent() {
                 className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-all cursor-pointer group"
               >
                 <div className="flex items-center justify-between text-slate-700 mb-2">
-                  <span className="text-xs font-semibold">Total Vendors</span>
+                  <span className="text-xs font-semibold">Total Clients</span>
                   <Users className="w-4 h-4 text-slate-600 group-hover:text-slate-900" />
                 </div>
                 <div className="text-2xl font-bold text-slate-900 tracking-tight">18</div>
-                <div className="text-[11px] text-slate-600 font-medium mt-1">Registered suppliers</div>
+                <div className="text-[11px] text-slate-600 font-medium mt-1">Registered clients</div>
               </div>
 
               <div
@@ -867,7 +867,7 @@ function SalesDemoContent() {
                   <AlertTriangle className="w-4 h-4 text-sky-600" />
                 </div>
                 <div className="text-2xl font-bold text-sky-950 tracking-tight">2</div>
-                <div className="text-[11px] text-sky-700 font-medium mt-1">Awaiting vendor upload</div>
+                <div className="text-[11px] text-sky-700 font-medium mt-1">Awaiting client upload</div>
               </div>
 
               <div
@@ -895,18 +895,18 @@ function SalesDemoContent() {
               </div>
             </div>
 
-            {/* Recent Vendors Overview Table */}
+            {/* Recent Clients Overview Table */}
             <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs p-5">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Recent Vendor Compliance Records</h3>
-                  <p className="text-xs text-slate-500">Live compliance status across active enterprise suppliers</p>
+                  <h3 className="text-sm font-bold text-slate-900">Recent Client Intake Records</h3>
+                  <p className="text-xs text-slate-500">Live intake status across active bookkeeping clients</p>
                 </div>
                 <button
                   onClick={() => setActiveTab('vendors')}
                   className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 cursor-pointer"
                 >
-                  <span>View All Vendors</span>
+                  <span>View All Clients</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -915,7 +915,7 @@ function SalesDemoContent() {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
                     <tr>
-                      <th className="px-4 py-3">Vendor Name</th>
+                      <th className="px-4 py-3">Client Name</th>
                       <th className="px-4 py-3">Category</th>
                       <th className="px-4 py-3">Compliance Health</th>
                       <th className="px-4 py-3">Documents</th>
@@ -972,7 +972,7 @@ function SalesDemoContent() {
         )}
 
         {/* ========================================================= */}
-        {/* VIEW 3: VENDORS (Exact Match to app/vendors/page.tsx)      */}
+        {/* VIEW 3: CLIENTS (Exact Match to app/vendors/page.tsx)      */}
         {/* ========================================================= */}
         {activeTab === 'vendors' && (
           <main className="p-6 space-y-6 max-w-7xl mx-auto w-full">
@@ -981,7 +981,7 @@ function SalesDemoContent() {
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Search suppliers by name, category, or email..."
+                  placeholder="Search clients by name, category, or email..."
                   className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
                 />
               </div>
@@ -990,7 +990,7 @@ function SalesDemoContent() {
                 className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
               >
                 <UserPlus className="w-3.5 h-3.5" />
-                <span>+ Invite New Vendor</span>
+                <span>+ Invite New Client</span>
               </button>
             </div>
 
@@ -998,7 +998,7 @@ function SalesDemoContent() {
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
                   <tr>
-                    <th className="px-5 py-3.5">Vendor Name</th>
+                    <th className="px-5 py-3.5">Client Name</th>
                     <th className="px-5 py-3.5">Category</th>
                     <th className="px-5 py-3.5">Contact Details</th>
                     <th className="px-5 py-3.5">Compliance Score</th>
@@ -1057,7 +1057,7 @@ function SalesDemoContent() {
               <div className="flex items-center gap-2.5">
                 <ClockAlert className="w-5 h-5 text-amber-600 shrink-0" />
                 <div>
-                  <span className="font-bold">Autonomous Reminder Pipeline Active:</span> Automated notifications configured for 30, 7, and 1 days prior to certificate expiry.
+                  <span className="font-bold">Autonomous Reminder Pipeline Active:</span> Automated notifications configured for 30, 14, and 7 days prior to document expiry or filing deadlines.
                 </div>
               </div>
               <span className="bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded text-[11px]">
@@ -1204,7 +1204,7 @@ function SalesDemoContent() {
                   </h2>
                   <p className="text-xs text-slate-600 mt-0.5">
                     Email notification with secure upload button sent to{' '}
-                    <strong className="text-slate-900">{dispatchedLinkResult.vendorName}</strong> ({dispatchedLinkResult.vendorEmail}).
+                    <strong className="text-slate-900">{dispatchedLinkResult.clientName}</strong> ({dispatchedLinkResult.clientEmail}).
                   </p>
                 </div>
               </div>
@@ -1239,7 +1239,7 @@ function SalesDemoContent() {
                   </button>
                 </div>
                 <div className="pt-1 flex items-center justify-between text-[11px] text-slate-600">
-                  <span>Share directly via WhatsApp, Slack, or SMS</span>
+                  <span>Share directly via Email, Teams, or SMS</span>
                   <span className="text-indigo-600 font-semibold">Resubmission Active</span>
                 </div>
               </div>
@@ -1348,7 +1348,7 @@ function SalesDemoContent() {
                       <div className="space-y-1">
                         <div className="font-bold text-amber-950">Document Flagged: Illegible / Blurry Text</div>
                         <p className="text-[11px] text-amber-800 leading-relaxed">
-                          The uploaded scan above is out of focus and illegible. You can click <strong>&quot;Reject&quot;</strong> below to test FormGate&apos;s 1-click partial rejection and dispatch a single-file resubmission magic link to Zenith Facility Solutions.
+                          The uploaded scan above is out of focus and illegible. You can click <strong>&quot;Reject&quot;</strong> below to test FormGate&apos;s 1-click partial rejection and dispatch a single-file resubmission magic link to Cotswold Commerce Ltd.
                         </p>
                       </div>
                     </div>
@@ -1380,7 +1380,7 @@ function SalesDemoContent() {
                       {[
                         'Blurry or unreadable document scan',
                         'Missing official stamp or signature',
-                        'Document does not match legal vendor name',
+                        'Document does not match legal client name',
                         'Expired policy period'
                       ].map((preset) => (
                         <button
@@ -1481,7 +1481,7 @@ function SalesDemoContent() {
                   <div>
                     <div className="flex items-center gap-2">
                       <h4 className="text-sm font-bold text-white tracking-tight">
-                        Vendor Resubmission Magic Link Dispatched
+                        Client Resubmission Magic Link Dispatched
                       </h4>
                       <span className="flex items-center gap-1 text-[10px] bg-emerald-500/20 text-emerald-300 font-semibold px-2 py-0.5 rounded-full border border-emerald-500/30">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block"></span>
@@ -1509,7 +1509,7 @@ function SalesDemoContent() {
                 <div className="flex items-center gap-2">
                   <span className="text-slate-400 text-[11px]">Recipient:</span>
                   <span className="font-mono font-bold text-emerald-300 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800/60 text-xs">
-                    {toastNotification.recipientEmail || 'contact@zenithfacility.com'}
+                    {toastNotification.recipientEmail || 'accounts@cotswoldcommerce.co.uk'}
                   </span>
                 </div>
 
@@ -1518,11 +1518,11 @@ function SalesDemoContent() {
                   <div>
                     Notification sent to{' '}
                     <strong className="text-emerald-300 font-mono">
-                      {toastNotification.recipientEmail || 'contact@zenithfacility.com'}
+                      {toastNotification.recipientEmail || 'accounts@cotswoldcommerce.co.uk'}
                     </strong>
-                    . The vendor resubmits only{' '}
+                    . The client resubmits only{' '}
                     <strong className="text-white underline decoration-amber-400 decoration-2 underline-offset-2">
-                      &quot;{toastNotification.targetDocName || 'Commercial Registration Proof (Blurry Scan)'}&quot;
+                      &quot;{toastNotification.targetDocName || 'HMRC VAT Certificate & MTD Summary (Blurry Scan)'}&quot;
                     </strong>{' '}
                     without losing prior approved files.
                   </div>
@@ -1545,7 +1545,7 @@ function SalesDemoContent() {
                       target="_blank"
                       rel="noreferrer"
                       className="flex-1 flex items-center gap-2 px-3 py-2 bg-slate-950 hover:bg-slate-800 rounded-lg border border-slate-800 hover:border-indigo-500/50 text-xs font-mono text-indigo-300 transition-colors group overflow-hidden"
-                      title="Click to open vendor resubmission screen in new tab"
+                      title="Click to open client resubmission screen in new tab"
                     >
                       <Link2 className="w-3.5 h-3.5 text-slate-500 group-hover:text-indigo-400 shrink-0" />
                       <span className="truncate underline decoration-indigo-500/40">{toastNotification.linkUrl}</span>
@@ -1575,7 +1575,7 @@ function SalesDemoContent() {
                       rel="noreferrer"
                       className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 hover:underline"
                     >
-                      <span>Open Vendor Portal &rarr;</span>
+                      <span>Open Client Portal &rarr;</span>
                     </a>
                     <span className="text-[10px] text-slate-400 font-normal">
                       Only the blurry file needs replacement
@@ -1587,7 +1587,7 @@ function SalesDemoContent() {
               {/* Footer Actions */}
               <div className="pt-1 flex items-center justify-between text-xs">
                 <span className="text-[11px] text-slate-400">
-                  Audit log updated &bull; No vendor login required
+                  Audit log updated &bull; No client login required
                 </span>
                 <button
                   type="button"
@@ -1603,7 +1603,7 @@ function SalesDemoContent() {
       )}
 
       {/* ========================================================= */}
-      {/* 5. SIMULATED "+ INVITE VENDOR" MODAL                      */}
+      {/* 5. SIMULATED "+ INVITE CLIENT" MODAL                      */}
       {/* ========================================================= */}
       {showInviteModal && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
@@ -1611,7 +1611,7 @@ function SalesDemoContent() {
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <div className="flex items-center gap-2 text-slate-900 font-bold">
                 <UserPlus className="w-5 h-5 text-indigo-600" />
-                <span>Invite Supplier to Onboard</span>
+                <span>Invite Client to Onboard</span>
               </div>
               <button onClick={() => setShowInviteModal(false)} className="text-slate-400 hover:text-slate-700">
                 <X className="w-5 h-5" />
@@ -1623,7 +1623,7 @@ function SalesDemoContent() {
                 <label className="text-xs font-bold text-slate-700 block mb-1">Company Legal Name</label>
                 <input
                   type="text"
-                  placeholder="e.g. Reliance Logistics Ltd"
+                  placeholder="e.g. Highline Media LLC / Cotswold Retail Ltd"
                   className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
                 />
               </div>
@@ -1632,7 +1632,7 @@ function SalesDemoContent() {
                 <label className="text-xs font-bold text-slate-700 block mb-1">Recipient Business Email</label>
                 <input
                   type="email"
-                  placeholder="compliance@supplier.com"
+                  placeholder="billing@clientcompany.com"
                   className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
                 />
               </div>
@@ -1665,7 +1665,7 @@ function SalesDemoContent() {
                   setShowInviteModal(false);
                   setToastNotification({
                     visible: true,
-                    title: 'Vendor Invitation Dispatched',
+                    title: 'Client Invitation Dispatched',
                     message: 'Magic onboarding invite delivered. Link ready for direct sharing.'
                   });
                   setTimeout(() => setToastNotification(null), 3500);
@@ -1688,7 +1688,7 @@ function SalesDemoContent() {
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <div className="flex items-center gap-2 text-slate-900 font-bold">
                 <Upload className="w-5 h-5 text-indigo-600" />
-                <span>Upload Document on Behalf of Vendor</span>
+                <span>Upload Document on Behalf of Client</span>
               </div>
               <button onClick={() => setShowUploadModal(false)} className="text-slate-400 hover:text-slate-700">
                 <X className="w-5 h-5" />
@@ -1697,27 +1697,28 @@ function SalesDemoContent() {
 
             <div className="p-6 space-y-4">
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Target Vendor</label>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Target Client</label>
                 <select className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                  <option>Zenith Facility Solutions</option>
-                  <option>Apex Logistics Pvt Ltd</option>
-                  <option>Vertex Infra Projects</option>
+                  <option>Apex Cloud Media LLC</option>
+                  <option>Cotswold Commerce Ltd</option>
+                  <option>Meridian Software Inc</option>
                 </select>
               </div>
 
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">Document Category</label>
                 <select className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                  <option>Commercial General Liability Insurance</option>
-                  <option>GST Registration Certificate</option>
-                  <option>PAN Card</option>
+                  <option>IRS Form W-9 (Taxpayer ID)</option>
+                  <option>HMRC VAT Registration & MTD Certificate</option>
+                  <option>Business Bank Statements (Latest 3 Months)</option>
+                  <option>State Resale & Sales Tax Exemption Form</option>
                 </select>
               </div>
 
               <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center hover:border-indigo-400 transition-colors bg-slate-50/60 cursor-pointer">
                 <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
                 <div className="text-xs font-semibold text-slate-700">Drag & drop document PDF/JPG here</div>
-                <div className="text-[11px] text-slate-400 mt-1">Attachment will be linked directly to vendor record</div>
+                <div className="text-[11px] text-slate-400 mt-1">Attachment will be linked directly to client record</div>
               </div>
             </div>
 
