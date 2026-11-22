@@ -1017,25 +1017,25 @@ JSON Keys:
             parsed.name = workflow_name
         return parsed
 
-def _generate_with_gemini(
-    model_name: str,
+def _generate_with_openai(
     prompt: str,
     workflow_name: Optional[str] = None,
     vendor_category: Optional[str] = "General",
     description: Optional[str] = None
 ) -> Optional[WorkflowSchemaDefinition]:
     """
-    Attempt structured workflow generation using Google Gemini model.
+    Generate structured workflow definition using OpenAI (gpt-4o-mini).
+    Tries structured outputs first, with graceful JSON mode fallback.
     """
     import os
-    gemini_key = settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-    if not gemini_key:
+    openai_key = settings.OPENAI_API_KEY or os.environ.get("OPENAI_API_KEY")
+    if not openai_key:
         return None
 
-    from google import genai
-    from google.genai import types
+    from openai import OpenAI
+    client = OpenAI(api_key=openai_key)
+    model = settings.OPENAI_MODEL or "gpt-4o-mini"
 
-    client = genai.Client(api_key=gemini_key)
     user_content = (
         f"Requirements Prompt:\n{prompt}\n\n"
         f"Provided Metadata:\n"
@@ -1044,65 +1044,52 @@ def _generate_with_gemini(
         f"- Description: {description or 'None provided'}"
     )
 
-    logger.info(f"Calling Google Gemini API model: {model_name}")
-    response = client.models.generate_content(
-        model=model_name,
-        contents=user_content,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=WorkflowSchemaDefinition,
-            temperature=0.2,
-            system_instruction=SYSTEM_PROMPT
-        )
-    )
+    logger.info(f"Calling OpenAI model: {model}")
 
-    if hasattr(response, 'parsed') and response.parsed:
-        parsed = response.parsed
-        if isinstance(parsed, WorkflowSchemaDefinition):
+    # Primary attempt: Structured Outputs via Pydantic parsing
+    try:
+        response = client.beta.chat.completions.parse(
+            model=model,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_content}
+            ],
+            response_format=WorkflowSchemaDefinition,
+            temperature=0.2
+        )
+        parsed = response.choices[0].message.parsed
+        if parsed:
             if workflow_name and not parsed.name:
                 parsed.name = workflow_name
             return parsed
-        elif isinstance(parsed, dict):
-            return WorkflowSchemaDefinition.model_validate(parsed)
+    except Exception as parse_err:
+        logger.warning(f"OpenAI beta parse failed ({parse_err}). Falling back to JSON mode...")
 
-    if response.text:
-        text = response.text.strip()
-        if text.startswith("```json"):
-            text = text[7:]
-        if text.startswith("```"):
-            text = text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
+    # Secondary attempt: JSON Mode completion with manual parse & repair
+    try:
+        completion = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT + "\n\nRespond with strict JSON adhering to the schema."},
+                {"role": "user", "content": user_content}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.2
+        )
+        raw_text = completion.choices[0].message.content or ""
         data = None
         try:
-            data = json.loads(text)
+            data = json.loads(raw_text)
         except Exception:
-            data = repair_truncated_json(text)
+            data = repair_truncated_json(raw_text)
 
-        if not data or not isinstance(data, dict):
-            return None
-
-        if "fields" in data and isinstance(data["fields"], list):
-            for idx, f in enumerate(data["fields"]):
-                if isinstance(f, dict):
-                    if not f.get("id"):
-                        f["id"] = f"field_{idx}_{abs(hash(f.get('label', 'doc')))}"
-                    if f.get("field_type") in ("dropdown", "checkbox"):
-                        val_dict = f.get("validation") if isinstance(f.get("validation"), dict) else {}
-                        raw_opts = f.get("options") or val_dict.get("options") or []
-                        clean_opts = [str(o).strip() for o in raw_opts if str(o).strip()]
-                        if clean_opts:
-                            f["options"] = clean_opts
-                            if "validation" not in f or not isinstance(f["validation"], dict):
-                                f["validation"] = {"options": clean_opts}
-                            else:
-                                f["validation"]["options"] = clean_opts
-
-        parsed = WorkflowSchemaDefinition.model_validate(data)
-        if workflow_name and not parsed.name:
-            parsed.name = workflow_name
-        return parsed
+        if data and isinstance(data, dict):
+            parsed = WorkflowSchemaDefinition.model_validate(data)
+            if workflow_name and not parsed.name:
+                parsed.name = workflow_name
+            return parsed
+    except Exception as json_err:
+        logger.error(f"OpenAI JSON mode generation failed: {json_err}")
 
     return None
 
@@ -1114,36 +1101,33 @@ async def generate_workflow_from_requirements(
 ) -> WorkflowSchemaDefinition:
     """
     Generation Priority Hierarchy:
-    1. First: Gemini 3.5 (gemini-3.5-flash)
-    2. If failed: Local Ollama (gemma4:e4b)
-    3. If failed: OpenAI (If configured)
-    4. If failed: Deterministic fallback generator
+    1. Production Primary: OpenAI API (gpt-4o-mini)
+    2. Local Development: Local Ollama (gemma4:e4b, when OLLAMA_ENABLED=True)
+    3. Final Safeguard: Deterministic fallback generator
     """
     import os
-    gemini_key = settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    openai_key = settings.OPENAI_API_KEY or os.environ.get("OPENAI_API_KEY")
 
-    # --- 1. FIRST: GOOGLE GEMINI 3.5 ---
-    if gemini_key:
-        primary_model = getattr(settings, "GEMINI_PRIMARY_MODEL", "gemini-3.5-flash")
+    # --- 1. PRODUCTION PRIMARY: OPENAI (gpt-4o-mini) ---
+    if openai_key:
         try:
-            logger.info(f"Tier 1: Checking form generation via Gemini 3.5 ({primary_model})...")
-            result = _generate_with_gemini(
-                model_name=primary_model,
+            logger.info(f"Tier 1: Generating workflow via OpenAI ({settings.OPENAI_MODEL})...")
+            openai_result = _generate_with_openai(
                 prompt=prompt,
                 workflow_name=workflow_name,
                 vendor_category=vendor_category,
                 description=description
             )
-            if result:
-                logger.info(f"Successfully generated workflow using Gemini 3.5 ({primary_model})")
-                return result
+            if openai_result:
+                logger.info(f"Successfully generated workflow using OpenAI ({settings.OPENAI_MODEL})")
+                return openai_result
         except Exception as e:
-            logger.warning(f"Tier 1 (Gemini 3.5: {primary_model}) failed: {type(e).__name__} - {e}. Falling back to Ollama.")
+            logger.warning(f"Tier 1 (OpenAI: {settings.OPENAI_MODEL}) failed: {type(e).__name__} - {e}. Checking local Ollama or fallback.")
 
-    # --- 2. SECOND: OLLAMA LOCAL MODEL ---
+    # --- 2. LOCAL DEV: OLLAMA LOCAL MODEL (if enabled) ---
     if settings.OLLAMA_ENABLED:
         try:
-            logger.info(f"Tier 2: Checking form generation via local Ollama ({settings.OLLAMA_MODEL})...")
+            logger.info(f"Tier 2 (Local): Generating workflow via local Ollama ({settings.OLLAMA_MODEL})...")
             ollama_result = await _generate_with_ollama(
                 prompt=prompt,
                 workflow_name=workflow_name,
@@ -1154,38 +1138,8 @@ async def generate_workflow_from_requirements(
                 logger.info(f"Successfully generated workflow using local Ollama model {settings.OLLAMA_MODEL}")
                 return ollama_result
         except Exception as e:
-            logger.warning(f"Tier 2 (Local Ollama: {settings.OLLAMA_MODEL}) failed: {type(e).__name__} - {e}. Falling back to final safeguard.")
+            logger.warning(f"Tier 2 (Local Ollama: {settings.OLLAMA_MODEL}) failed: {type(e).__name__} - {e}.")
 
-    # --- 3. THIRD: OPENAI (If configured) ---
-    if settings.OPENAI_API_KEY:
-        try:
-            logger.info(f"Checking form generation via OpenAI API (model: {settings.OPENAI_MODEL})...")
-            from openai import OpenAI
-            client = OpenAI(api_key=settings.OPENAI_API_KEY)
-            user_content = (
-                f"Requirements Prompt:\n{prompt}\n\n"
-                f"Provided Metadata:\n"
-                f"- Workflow Name: {workflow_name or 'Auto-generate'}\n"
-                f"- Category / Industry: {vendor_category or 'General'}\n"
-                f"- Description: {description or 'None provided'}"
-            )
-            response = client.beta.chat.completions.parse(
-                model=settings.OPENAI_MODEL,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": user_content}
-                ],
-                response_format=WorkflowSchemaDefinition,
-                temperature=0.2
-            )
-            parsed = response.choices[0].message.parsed
-            if parsed:
-                if workflow_name and not parsed.name:
-                    parsed.name = workflow_name
-                return parsed
-        except Exception as e:
-            logger.warning(f"OpenAI fallback failed: {e}")
-
-    # --- 4. FINAL SAFEGUARD: DETERMINISTIC GENERATOR ---
-    logger.info("All LLM services failed or unavailable. Using intelligent deterministic fallback generator.")
+    # --- 3. FINAL SAFEGUARD: DETERMINISTIC GENERATOR ---
+    logger.info("All LLM services unavailable or failed. Using intelligent deterministic fallback generator.")
     return generate_deterministic_fallback(prompt, workflow_name, vendor_category, description)

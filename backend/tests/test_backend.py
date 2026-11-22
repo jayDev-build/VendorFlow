@@ -1,5 +1,10 @@
 import os
 import sys
+
+os.environ["ENVIRONMENT"] = "test"
+os.environ["DATABASE_URL"] = "sqlite:///./test_formgate.db"
+os.environ["OPENAI_API_KEY"] = ""
+
 import pytest
 from datetime import datetime, timezone, timedelta
 from fastapi.testclient import TestClient
@@ -35,6 +40,7 @@ app.dependency_overrides[get_db] = override_get_db
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_db():
     from app.core.config import settings
+    settings.OPENAI_API_KEY = ""
     settings.OLLAMA_ENABLED = False
     settings.RESEND_API_KEY = ""
     notification_service.resend_api_key = None

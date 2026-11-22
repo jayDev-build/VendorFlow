@@ -176,7 +176,7 @@ export default function SettingsPage() {
               </div>
               <div className="text-[11px] text-emerald-600 font-medium flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span>Gemini 3.5 & Ollama</span>
+                <span>OpenAI & Ollama</span>
               </div>
             </div>
 

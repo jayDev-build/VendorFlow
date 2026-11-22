@@ -107,17 +107,11 @@ class Settings(BaseSettings):
                 return [i.strip() for i in v.split(",")]
         return v
 
-    # Google Gemini Model (Primary Workflow Generator)
-    GEMINI_API_KEY: str = ""
-    GEMINI_PRIMARY_MODEL: str = "gemini-2.5-flash"
-    GEMINI_SECONDARY_MODEL: str = "gemini-2.5-flash-lite"
-    GEMINI_MODEL: str = "gemini-2.5-flash"
-
-    # OpenAI API (Optional Fallback)
+    # OpenAI API (Production AI Workflow Generator: gpt-4o-mini)
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o-mini"
 
-    # Ollama Local LLM (Disabled by default in cloud deployments)
+    # Ollama Local LLM (For local development only)
     OLLAMA_ENABLED: bool = False
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "gemma4:e4b"

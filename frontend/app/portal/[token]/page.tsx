@@ -338,11 +338,10 @@ function UnifiedClientPortalContent() {
                       />
                       <label
                         htmlFor={`file_input_${item.document_id}`}
-                        className={`w-full py-2.5 px-4 rounded-lg text-xs font-bold cursor-pointer transition-all flex items-center justify-center gap-2 shadow-xs ${
-                          isUploading
-                            ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
-                            : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                        }`}
+                        className={`w-full py-2.5 px-4 rounded-lg text-xs font-bold cursor-pointer transition-all flex items-center justify-center gap-2 shadow-xs ${isUploading
+                          ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                          : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                          }`}
                       >
                         {isUploading ? (
                           <>
@@ -406,11 +405,10 @@ function UnifiedClientPortalContent() {
                     <button
                       key={assign.id}
                       onClick={() => setActiveTabId(assign.id)}
-                      className={`px-4 py-2 rounded-t-lg text-xs font-bold transition-colors flex items-center gap-2 whitespace-nowrap border-b-2 cursor-pointer ${
-                        isActive
-                          ? 'border-indigo-600 text-indigo-700 bg-indigo-50/60'
-                          : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                      }`}
+                      className={`px-4 py-2 rounded-t-lg text-xs font-bold transition-colors flex items-center gap-2 whitespace-nowrap border-b-2 cursor-pointer ${isActive
+                        ? 'border-indigo-600 text-indigo-700 bg-indigo-50/60'
+                        : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                        }`}
                     >
                       <span>
                         Form {i + 1}: {assign.workflow_name}
@@ -450,15 +448,14 @@ function UnifiedClientPortalContent() {
 
                 <div className="flex items-center gap-3">
                   <span
-                    className={`text-xs font-bold px-3 py-1 rounded-full border ${
-                      activeAssignment.status === 'APPROVED'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : activeAssignment.status === 'SUBMITTED'
+                    className={`text-xs font-bold px-3 py-1 rounded-full border ${activeAssignment.status === 'APPROVED'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : activeAssignment.status === 'SUBMITTED'
                         ? 'bg-purple-50 text-purple-700 border-purple-200'
                         : activeAssignment.status === 'REJECTED'
-                        ? 'bg-rose-50 text-rose-700 border-rose-200'
-                        : 'bg-amber-50 text-amber-700 border-amber-200'
-                    }`}
+                          ? 'bg-rose-50 text-rose-700 border-rose-200'
+                          : 'bg-amber-50 text-amber-700 border-amber-200'
+                      }`}
                   >
                     Workflow Status: {activeAssignment.status}
                   </span>
@@ -580,13 +577,12 @@ function UnifiedClientPortalContent() {
                               {field.required && <span className="text-xs text-rose-500 font-bold">*Required</span>}
                               {existingDoc && (
                                 <span
-                                  className={`text-xs font-semibold px-2 py-0.5 rounded ${
-                                    existingDoc.status === 'APPROVED'
-                                      ? 'bg-emerald-100 text-emerald-800'
-                                      : existingDoc.status === 'REJECTED'
+                                  className={`text-xs font-semibold px-2 py-0.5 rounded ${existingDoc.status === 'APPROVED'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : existingDoc.status === 'REJECTED'
                                       ? 'bg-rose-100 text-rose-800'
                                       : 'bg-purple-100 text-purple-800'
-                                  }`}
+                                    }`}
                                 >
                                   {existingDoc.status}
                                 </span>
@@ -650,13 +646,12 @@ function UnifiedClientPortalContent() {
                             />
                             <label
                               htmlFor={`upload_${activeAssignment.id}_${field.id}`}
-                              className={`py-2 px-3.5 rounded-lg text-xs font-bold cursor-pointer transition-colors flex items-center gap-1.5 border ${
-                                isUploading
-                                  ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
-                                  : existingDoc
+                              className={`py-2 px-3.5 rounded-lg text-xs font-bold cursor-pointer transition-colors flex items-center gap-1.5 border ${isUploading
+                                ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                                : existingDoc
                                   ? 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-300'
                                   : 'bg-indigo-600 hover:bg-indigo-700 text-white border-transparent'
-                              }`}
+                                }`}
                             >
                               {isUploading ? (
                                 <>
@@ -697,11 +692,10 @@ function UnifiedClientPortalContent() {
                   type="button"
                   disabled={isSubmitting}
                   onClick={() => handleSubmitAssignment(activeAssignment)}
-                  className={`px-6 py-3 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center gap-2 cursor-pointer ${
-                    isSubmitting
-                      ? 'bg-indigo-400 text-white cursor-not-allowed'
-                      : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                  }`}
+                  className={`px-6 py-3 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center gap-2 cursor-pointer ${isSubmitting
+                    ? 'bg-indigo-400 text-white cursor-not-allowed'
+                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                    }`}
                 >
                   {isSubmitting ? (
                     <>

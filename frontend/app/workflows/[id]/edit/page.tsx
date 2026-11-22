@@ -406,7 +406,7 @@ function EditWorkflowContent() {
               </div>
               <div>
                 <span className="text-xs font-bold text-slate-900">AI Assistant: Refine or Add Requirements</span>
-                <p className="text-[11px] text-slate-600 font-medium">Use local Ollama (gemma4:e4b) to regenerate or inject new compliance requirements</p>
+                <p className="text-[11px] text-slate-600 font-medium">Use AI to regenerate or inject new intake requirements</p>
               </div>
             </div>
             <div className="text-slate-500">
@@ -454,7 +454,7 @@ function EditWorkflowContent() {
                   className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-colors shadow-xs disabled:opacity-50"
                 >
                   {isAiGenerating ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                  <span>{isAiGenerating ? 'Generating with Ollama...' : 'Update Schema with AI'}</span>
+                  <span>{isAiGenerating ? 'Generating with AI...' : 'Update Schema with AI'}</span>
                 </button>
               </div>
             </div>
